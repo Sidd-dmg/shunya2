@@ -1,0 +1,267 @@
+{
+  "themesVersion": 1,
+  "objID": "95db0dca-7425-4a1a-a42b-010000000001",
+  "settings": {
+    "objID": "95db0dca-7425-4a1a-a42b-010000000002",
+    "general": {
+      "objID": "95db0dca-7425-4a1a-a42b-010000000003",
+      "projectVersion": "v3",
+      "projectType": "lvgl",
+      "lvglVersion": "8.4.0",
+      "extensions": [],
+      "imports": [],
+      "flowSupport": false,
+      "displayWidth": 800,
+      "displayHeight": 480,
+      "displayBorderRadius": 0,
+      "colorFormat": "BGR",
+      "resourceFiles": [],
+      "description": "Shunya five-tab industrial HMI visual source"
+    },
+    "build": {
+      "objID": "95db0dca-7425-4a1a-a42b-010000000004",
+      "configurations": [
+        {
+          "objID": "95db0dca-7425-4a1a-a42b-010000000005",
+          "name": "Default"
+        }
+      ],
+      "files": [
+        {
+          "objID": "95db0dca-7425-4a1a-a42b-010000000006",
+          "fileName": "screens.h",
+          "template": "#ifndef SHUNYA_EEZ_SCREENS_H\n#define SHUNYA_EEZ_SCREENS_H\n//${eez-studio LVGL_INCLUDE}\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n//${eez-studio LVGL_SCREENS_DECL}\n//${eez-studio LVGL_SCREENS_DECL_EXT}\n#ifdef __cplusplus\n}\n#endif\n#endif\n"
+        },
+        {
+          "objID": "95db0dca-7425-4a1a-a42b-010000000007",
+          "fileName": "screens.c",
+          "template": "#include \"screens.h\"\n#include \"actions.h\"\n//${eez-studio LVGL_SCREENS_DEF}\n//${eez-studio LVGL_SCREENS_DEF_EXT}\n"
+        },
+        {
+          "objID": "95db0dca-7425-4a1a-a42b-010000000008",
+          "fileName": "actions.h",
+          "template": "#ifndef SHUNYA_EEZ_ACTIONS_H\n#define SHUNYA_EEZ_ACTIONS_H\n//${eez-studio LVGL_INCLUDE}\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n//${eez-studio LVGL_ACTIONS_DECL}\n#ifdef __cplusplus\n}\n#endif\n#endif\n"
+        }
+      ],
+      "destinationFolder": "..\\src\\display\\ui\\generated",
+      "separateFolderForImagesAndFonts": false,
+      "lvglInclude": "lvgl.h",
+      "generateSourceCodeForEezFramework": false,
+      "compressFlowDefinition": false
+    }
+  },
+  "variables": {
+    "objID": "95db0dca-7425-4a1a-a42b-010000000009",
+    "globalVariables": [],
+    "structures": [],
+    "enums": []
+  },
+  "actions": [
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000001","components":[],"connectionLines":[],"localVariables":[],"name":"relay_toggle","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000002","components":[],"connectionLines":[],"localVariables":[],"name":"all_relays_off","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000003","components":[],"connectionLines":[],"localVariables":[],"name":"pairing_toggle","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000004","components":[],"connectionLines":[],"localVariables":[],"name":"forget_node","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000005","components":[],"connectionLines":[],"localVariables":[],"name":"forget_all_nodes","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000006","components":[],"connectionLines":[],"localVariables":[],"name":"apply_mode","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000019","components":[],"connectionLines":[],"localVariables":[],"name":"ota_check","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000020","components":[],"connectionLines":[],"localVariables":[],"name":"ota_update","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000021","components":[],"connectionLines":[],"localVariables":[],"name":"send_logs","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000022","components":[],"connectionLines":[],"localVariables":[],"name":"clear_logs","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000023","components":[],"connectionLines":[],"localVariables":[],"name":"test_hub","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000024","components":[],"connectionLines":[],"localVariables":[],"name":"test_display","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000025","components":[],"connectionLines":[],"localVariables":[],"name":"reset_wifi","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000026","components":[],"connectionLines":[],"localVariables":[],"name":"brightness_changed","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000027","components":[],"connectionLines":[],"localVariables":[],"name":"timeout_changed","implementationType":"native"}
+  ],
+  "userPages": [
+    {
+      "objID": "95db0dca-7425-4a1a-a42b-030000000001",
+      "components": [
+        {
+          "objID": "95db0dca-7425-4a1a-a42b-030000000002",
+          "type": "LVGLScreenWidget",
+          "left": 0,
+          "top": 0,
+          "width": 800,
+          "height": 480,
+          "identifier": "screen",
+          "children": [
+            {
+              "objID": "95db0dca-7425-4a1a-a42b-030000000003",
+              "type": "LVGLPanelWidget",
+              "left": 0,
+              "top": 0,
+              "width": 800,
+              "height": 64,
+              "identifier": "header",
+              "children": [
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000004","type":"LVGLLabelWidget","left":16,"top":9,"width":118,"height":28,"identifier":"header_title","text":"SHUNYA","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000004","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_24"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000005","type":"LVGLLabelWidget","left":17,"top":39,"width":116,"height":17,"identifier":"header_subtitle","text":"CONTROL HUB","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000005","definition":{"MAIN":{"DEFAULT":{"text_color":"#F59E0B","text_font":"MONTSERRAT_12"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000006","type":"LVGLPanelWidget","left":150,"top":12,"width":136,"height":40,"identifier":"display_status_chip","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000106","type":"LVGLLabelWidget","left":10,"top":11,"width":116,"height":18,"identifier":"display_link_status","text":"D  DISPLAY  --","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000106","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#F59E0B","border_width":1,"radius":10,"pad_all":0,"text_color":"#F8FAFC"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000007","type":"LVGLPanelWidget","left":294,"top":12,"width":136,"height":40,"identifier":"wifi_status_chip","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000107","type":"LVGLLabelWidget","left":10,"top":11,"width":116,"height":18,"identifier":"wifi_status","text":"W  WI-FI  --","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000107","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#22C55E","border_width":1,"radius":10,"pad_all":0,"text_color":"#F8FAFC"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000008","type":"LVGLPanelWidget","left":438,"top":12,"width":136,"height":40,"identifier":"mqtt_status_chip","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000108","type":"LVGLLabelWidget","left":10,"top":11,"width":116,"height":18,"identifier":"mqtt_status","text":"M  MQTT  --","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000108","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#22C55E","border_width":1,"radius":10,"pad_all":0,"text_color":"#F8FAFC"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000009","type":"LVGLPanelWidget","left":582,"top":12,"width":136,"height":40,"identifier":"zigbee_status_chip","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000109","type":"LVGLLabelWidget","left":10,"top":11,"width":116,"height":18,"identifier":"zigbee_hub_status","text":"Z  ZIGBEE  --","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000109","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#F59E0B","border_width":1,"radius":10,"pad_all":0,"text_color":"#F8FAFC"}}}}},
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000110","type":"LVGLLabelWidget","left":730,"top":23,"width":58,"height":20,"identifier":"clock","text":"00:00","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000110","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC"}}}}}
+              ],
+              "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000003","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","border_color":"#24344A","border_width":1,"pad_all":0}}}}
+            },
+            {
+              "objID": "95db0dca-7425-4a1a-a42b-030000000010",
+              "type": "LVGLTabviewWidget",
+              "left": 0,
+              "top": 64,
+              "width": 800,
+              "height": 416,
+              "identifier": "main_tabs",
+              "tabviewPosition": "BOTTOM",
+              "tabviewSize": 52,
+              "selectedTab": 0,
+              "selectedTabType": "literal",
+              "children": [
+                {
+                  "objID":"95db0dca-7425-4a1a-a42b-030000000011",
+                  "type":"LVGLTabWidget",
+                  "identifier":"tab_dashboard",
+                  "tabName":"Dashboard",
+                  "tabNameType":"literal",
+                  "children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000012","type":"LVGLLabelWidget","left":18,"top":10,"width":330,"height":28,"identifier":"dashboard_title","text":"ENVIRONMENT OVERVIEW","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000012","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_20"}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000013","type":"LVGLLabelWidget","left":540,"top":14,"width":220,"height":22,"identifier":"mode_status","text":"MODE  --","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000013","definition":{"MAIN":{"DEFAULT":{"text_color":"#F59E0B"}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000150","type":"LVGLPanelWidget","left":18,"top":50,"width":744,"height":274,"identifier":"dashboard_empty_state","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000151","type":"LVGLLabelWidget","left":190,"top":104,"width":364,"height":64,"identifier":"dashboard_empty_message","text":"NO PAIRED SENSOR NODES\\nPair up to two nodes from Sensors","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000150","definition":{"MAIN":{"DEFAULT":{"bg_color":"#0B1727","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000014","type":"LVGLPanelWidget","left":18,"top":50,"width":365,"height":274,"identifier":"node_panel_1","hiddenFlag":true,"children":[
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000114","type":"LVGLLabelWidget","left":16,"top":14,"width":200,"height":24,"identifier":"node_name_1","text":"NODE 01","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000114","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_18"}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000115","type":"LVGLLabelWidget","left":258,"top":16,"width":88,"height":20,"identifier":"node_pair_state_1","text":"PAIRED","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000115","definition":{"MAIN":{"DEFAULT":{"text_color":"#22C55E"}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000116","type":"LVGLArcWidget","left":32,"top":58,"width":128,"height":128,"identifier":"temperature_arc_1","min":-40,"max":80,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000116","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#F59E0B","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000117","type":"LVGLArcWidget","left":205,"top":58,"width":128,"height":128,"identifier":"humidity_arc_1","min":0,"max":100,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000117","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#22C55E","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000118","type":"LVGLLabelWidget","left":48,"top":102,"width":96,"height":36,"identifier":"temperature_value_1","text":"--.- C","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000119","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_1","text":"--.- %","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000120","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000126","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000127","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_1","text":"Last update  --","textType":"literal","children":[]}
+                    ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000014","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000015","type":"LVGLPanelWidget","left":397,"top":50,"width":365,"height":274,"identifier":"node_panel_2","hiddenFlag":true,"children":[
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000128","type":"LVGLLabelWidget","left":16,"top":14,"width":200,"height":24,"identifier":"node_name_2","text":"NODE 02","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000128","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_18"}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000129","type":"LVGLLabelWidget","left":258,"top":16,"width":88,"height":20,"identifier":"node_pair_state_2","text":"PAIRED","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000129","definition":{"MAIN":{"DEFAULT":{"text_color":"#22C55E"}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000130","type":"LVGLArcWidget","left":32,"top":58,"width":128,"height":128,"identifier":"temperature_arc_2","min":-40,"max":80,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000130","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#F59E0B","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000131","type":"LVGLArcWidget","left":205,"top":58,"width":128,"height":128,"identifier":"humidity_arc_2","min":0,"max":100,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000131","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#22C55E","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000134","type":"LVGLLabelWidget","left":48,"top":102,"width":96,"height":36,"identifier":"temperature_value_2","text":"--.- C","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000135","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_2","text":"--.- %","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000136","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000137","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000138","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_2","text":"Last update  --","textType":"literal","children":[]}
+                    ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000015","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}}
+                  ],
+                  "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000011","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":0}}}}
+                },
+                {
+                  "objID":"95db0dca-7425-4a1a-a42b-030000000020",
+                  "type":"LVGLTabWidget",
+                  "identifier":"tab_relays",
+                  "tabName":"Relays",
+                  "tabNameType":"literal",
+                  "children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000021","type":"LVGLButtonWidget","left":18,"top":18,"width":350,"height":120,"identifier":"relay_button_1","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000021","eventName":"CLICKED","handlerType":"action","action":"relay_toggle"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000121","type":"LVGLLabelWidget","left":115,"top":35,"width":120,"height":50,"identifier":"relay_label_1","text":"Relay 1\\nOFF","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000022","type":"LVGLButtonWidget","left":390,"top":18,"width":350,"height":120,"identifier":"relay_button_2","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000022","eventName":"CLICKED","handlerType":"action","action":"relay_toggle"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000122","type":"LVGLLabelWidget","left":115,"top":35,"width":120,"height":50,"identifier":"relay_label_2","text":"Relay 2\\nOFF","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000023","type":"LVGLButtonWidget","left":18,"top":154,"width":350,"height":120,"identifier":"relay_button_3","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000023","eventName":"CLICKED","handlerType":"action","action":"relay_toggle"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000123","type":"LVGLLabelWidget","left":115,"top":35,"width":120,"height":50,"identifier":"relay_label_3","text":"Relay 3\\nOFF","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000024","type":"LVGLButtonWidget","left":390,"top":154,"width":350,"height":120,"identifier":"relay_button_4","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000024","eventName":"CLICKED","handlerType":"action","action":"relay_toggle"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000124","type":"LVGLLabelWidget","left":115,"top":35,"width":120,"height":50,"identifier":"relay_label_4","text":"Relay 4\\nOFF","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000025","type":"LVGLButtonWidget","left":18,"top":294,"width":132,"height":50,"identifier":"all_off_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000025","eventName":"CLICKED","handlerType":"action","action":"all_relays_off"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000125","type":"LVGLLabelWidget","left":28,"top":15,"width":80,"height":20,"text":"ALL OFF","textType":"literal","children":[]}]}
+                  ],
+                  "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000020","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":12}}}}
+                },
+                {
+                  "objID":"95db0dca-7425-4a1a-a42b-030000000030",
+                  "type":"LVGLTabWidget",
+                  "identifier":"tab_sensors",
+                  "tabName":"Sensors",
+                  "tabNameType":"literal",
+                  "children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000031","type":"LVGLLabelWidget","left":18,"top":16,"width":230,"height":30,"identifier":"pair_status","text":"PAIRING CLOSED","textType":"literal","children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000032","type":"LVGLButtonWidget","left":468,"top":10,"width":142,"height":46,"identifier":"pair_toggle_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000032","eventName":"CLICKED","handlerType":"action","action":"pairing_toggle"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000132","type":"LVGLLabelWidget","left":20,"top":13,"width":102,"height":20,"text":"OPEN / CLOSE","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000033","type":"LVGLButtonWidget","left":620,"top":10,"width":142,"height":46,"identifier":"forget_all_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000033","eventName":"CLICKED","handlerType":"action","action":"forget_all_nodes"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000133","type":"LVGLLabelWidget","left":22,"top":13,"width":98,"height":20,"text":"FORGET ALL","textType":"literal","children":[]}]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000034","type":"LVGLPanelWidget","left":18,"top":76,"width":744,"height":102,"identifier":"sensor_row_1","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000139","type":"LVGLLabelWidget","left":18,"top":18,"width":520,"height":66,"identifier":"node_detail_1","text":"NODE 01   Not paired\\nTemperature --.- C     Humidity --.- %","textType":"literal","children":[]},{"objID":"95db0dca-7425-4a1a-a42b-030000000038","type":"LVGLButtonWidget","left":590,"top":26,"width":130,"height":48,"identifier":"forget_node_1_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000038","eventName":"CLICKED","handlerType":"action","action":"forget_node"}],"children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000034","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":12,"pad_all":0}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000035","type":"LVGLPanelWidget","left":18,"top":194,"width":744,"height":102,"identifier":"sensor_row_2","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000140","type":"LVGLLabelWidget","left":18,"top":18,"width":520,"height":66,"identifier":"node_detail_2","text":"NODE 02   Not paired\\nTemperature --.- C     Humidity --.- %","textType":"literal","children":[]},{"objID":"95db0dca-7425-4a1a-a42b-030000000039","type":"LVGLButtonWidget","left":590,"top":26,"width":130,"height":48,"identifier":"forget_node_2_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000039","eventName":"CLICKED","handlerType":"action","action":"forget_node"}],"children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000035","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":12,"pad_all":0}}}}}
+                  ],
+                  "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000030","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":0}}}}
+                },
+                {
+                  "objID":"95db0dca-7425-4a1a-a42b-030000000050",
+                  "type":"LVGLTabWidget",
+                  "identifier":"tab_programs",
+                  "tabName":"Programs",
+                  "tabNameType":"literal",
+                  "children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000051","type":"LVGLPanelWidget","left":18,"top":12,"width":744,"height":58,"identifier":"mode_panel","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000141","type":"LVGLLabelWidget","left":16,"top":19,"width":145,"height":22,"text":"OPERATING MODE","textType":"literal","children":[]},{"objID":"95db0dca-7425-4a1a-a42b-030000000052","type":"LVGLDropdownWidget","left":170,"top":8,"width":220,"height":42,"identifier":"mode_dropdown","options":"Manual\\nAutomation\\nQueue\\nHybrid","optionsType":"literal","selected":0,"selectedType":"literal","children":[]},{"objID":"95db0dca-7425-4a1a-a42b-030000000053","type":"LVGLButtonWidget","left":600,"top":8,"width":126,"height":42,"identifier":"apply_mode_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000053","eventName":"CLICKED","handlerType":"action","action":"apply_mode"}],"children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000142","type":"LVGLLabelWidget","left":38,"top":12,"width":50,"height":20,"text":"APPLY","textType":"literal","children":[]}]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000051","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":12,"pad_all":0}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000054","type":"LVGLPanelWidget","left":18,"top":84,"width":365,"height":240,"identifier":"queue_readonly_panel","children":[
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000143","type":"LVGLLabelWidget","left":16,"top":14,"width":210,"height":24,"text":"QUEUE  /  READ ONLY","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000144","type":"LVGLLabelWidget","left":270,"top":14,"width":78,"height":22,"identifier":"queue_status","text":"IDLE","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000144","definition":{"MAIN":{"DEFAULT":{"text_color":"#22C55E"}}}}},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000145","type":"LVGLLabelWidget","left":16,"top":52,"width":333,"height":22,"identifier":"queue_header","text":"STEP     DURATION      OUTPUTS","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000146","type":"LVGLLabelWidget","left":16,"top":82,"width":333,"height":132,"identifier":"queue_list","text":"01       --:--         --\\n02       --:--         --\\n03       --:--         --\\n04       --:--         --\\n05       --:--         --","textType":"literal","children":[]}
+                    ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000054","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":12,"pad_all":0,"text_color":"#8DA0B8"}}}}},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000055","type":"LVGLPanelWidget","left":397,"top":84,"width":365,"height":240,"identifier":"automation_readonly_panel","children":[
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000147","type":"LVGLLabelWidget","left":16,"top":14,"width":250,"height":24,"text":"AUTOMATION  /  READ ONLY","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000148","type":"LVGLLabelWidget","left":16,"top":52,"width":333,"height":22,"identifier":"automation_header","text":"RULE     CONDITION       TARGET","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000149","type":"LVGLLabelWidget","left":16,"top":82,"width":333,"height":132,"identifier":"automation_list","text":"01       --              --\\n02       --              --\\n03       --              --\\n04       --              --\\n05       --              --","textType":"literal","children":[]}
+                    ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000055","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":12,"pad_all":0,"text_color":"#8DA0B8"}}}}}
+                  ],
+                  "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000050","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":0}}}}
+                },
+                {
+                  "objID":"95db0dca-7425-4a1a-a42b-030000000090",
+                  "type":"LVGLTabWidget",
+                  "identifier":"tab_system",
+                  "tabName":"System",
+                  "tabNameType":"literal",
+                  "children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000091","type":"LVGLLabelWidget","left":14,"top":12,"width":750,"height":88,"identifier":"system_info","text":"Waiting for gateway...","textType":"literal","children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000092","type":"LVGLButtonWidget","left":14,"top":110,"width":132,"height":50,"identifier":"ota_check_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000092","eventName":"CLICKED","handlerType":"action","action":"ota_check"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000093","type":"LVGLButtonWidget","left":156,"top":110,"width":132,"height":50,"identifier":"ota_update_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000093","eventName":"CLICKED","handlerType":"action","action":"ota_update"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000094","type":"LVGLButtonWidget","left":298,"top":110,"width":132,"height":50,"identifier":"send_logs_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000094","eventName":"CLICKED","handlerType":"action","action":"send_logs"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000095","type":"LVGLButtonWidget","left":440,"top":110,"width":132,"height":50,"identifier":"clear_logs_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000095","eventName":"CLICKED","handlerType":"action","action":"clear_logs"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000096","type":"LVGLButtonWidget","left":582,"top":110,"width":132,"height":50,"identifier":"test_hub_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000096","eventName":"CLICKED","handlerType":"action","action":"test_hub"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000097","type":"LVGLButtonWidget","left":14,"top":172,"width":132,"height":50,"identifier":"test_display_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000097","eventName":"CLICKED","handlerType":"action","action":"test_display"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000098","type":"LVGLButtonWidget","left":156,"top":172,"width":132,"height":50,"identifier":"reset_wifi_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000098","eventName":"CLICKED","handlerType":"action","action":"reset_wifi"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000099","type":"LVGLLabelWidget","left":310,"top":180,"width":90,"height":22,"text":"Brightness","textType":"literal","children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000100","type":"LVGLSliderWidget","left":405,"top":178,"width":190,"height":28,"identifier":"brightness_slider","min":10,"max":100,"value":100,"valueType":"literal","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000100","eventName":"VALUE_CHANGED","handlerType":"action","action":"brightness_changed"}],"children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000101","type":"LVGLLabelWidget","left":310,"top":238,"width":120,"height":22,"text":"Screen timeout","textType":"literal","children":[]},
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000102","type":"LVGLDropdownWidget","left":440,"top":230,"width":170,"height":44,"identifier":"timeout_dropdown","options":"Never\\n1 minute\\n5 minutes\\n15 minutes","optionsType":"literal","selected":0,"selectedType":"literal","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000102","eventName":"VALUE_CHANGED","handlerType":"action","action":"timeout_changed"}],"children":[]}
+                  ],
+                  "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000090","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":12}}}}
+                }
+              ],
+              "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000010","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC"}},"ITEMS":{"DEFAULT":{"bg_color":"#111E2F","text_color":"#8DA0B8"},"CHECKED":{"bg_color":"#F59E0B","text_color":"#07111F"}}}}
+            }
+          ],
+          "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000002","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","border_width":0,"pad_all":0}}}}
+        }
+      ],
+      "connectionLines": [],
+      "localVariables": [],
+      "userProperties": [],
+      "name": "Main",
+      "left": 0,
+      "top": 0,
+      "width": 800,
+      "height": 480
+    }
+  ],
+  "userWidgets": [],
+  "lvglStyles": {
+    "objID": "95db0dca-7425-4a1a-a42b-060000000001",
+    "styles": [],
+    "defaultStyles": {}
+  },
+  "lvglGroups": {
+    "objID": "95db0dca-7425-4a1a-a42b-060000000002",
+    "groups": []
+  },
+  "fonts": [],
+  "bitmaps": [],
+  "colors": [],
+  "themes": [
+    {
+      "objID": "95db0dca-7425-4a1a-a42b-060000000003",
+      "name": "Industrial Dark",
+      "colors": []
+    }
+  ]
+}

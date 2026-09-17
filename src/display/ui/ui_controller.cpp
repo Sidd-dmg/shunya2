@@ -5,12 +5,13 @@
 #include <cstdio>
 #include <cstring>
 
-static const lv_color_t COLOR_PANEL = lv_color_hex(0x102238);
-static const lv_color_t COLOR_PANEL_2 = lv_color_hex(0x193149);
-static const lv_color_t COLOR_TEXT = lv_color_hex(0xF4F7FB);
-static const lv_color_t COLOR_MUTED = lv_color_hex(0x91A4B8);
-static const lv_color_t COLOR_ORANGE = lv_color_hex(0xF97316);
-static const lv_color_t COLOR_GREEN = lv_color_hex(0x22C55E);
+static const lv_color_t COLOR_PANEL = lv_color_hex(0x102235);
+static const lv_color_t COLOR_PANEL_2 = lv_color_hex(0x1A344D);
+static const lv_color_t COLOR_TEXT = lv_color_hex(0xF7FAFC);
+static const lv_color_t COLOR_MUTED = lv_color_hex(0x9AAFC2);
+static const lv_color_t COLOR_ORANGE = lv_color_hex(0xFF8733);
+static const lv_color_t COLOR_GREEN = lv_color_hex(0x34D399);
+static const lv_color_t COLOR_BLUE = lv_color_hex(0x38BDF8);
 static const lv_color_t COLOR_RED = lv_color_hex(0xEF4444);
 
 static display_snapshot_t s_current;
@@ -31,12 +32,111 @@ static display_snapshot_t s_system_rendered;
 static bool s_has_system_rendered;
 static uint8_t s_sensor_page;
 static uint8_t s_sensor_row_node_ids[4];
+static char s_sensor_row_text[4][112];
+static uint8_t s_sensor_page_rendered = 0xFF;
+static uint8_t s_sensor_page_count_rendered = 0xFF;
+
+static constexpr uint8_t HISTORY_CAPACITY = 60;
+struct NodeHistory {
+    uint8_t node_id;
+    uint8_t count;
+    uint8_t head;
+    uint32_t last_uptime_ms;
+    int16_t temperature_x10[HISTORY_CAPACITY];
+    int16_t humidity_x10[HISTORY_CAPACITY];
+};
+static NodeHistory s_histories[DISPLAY_PROTO_MAX_NODES];
+static uint8_t s_history_node_id;
+static lv_chart_series_t *s_temperature_series;
+static lv_chart_series_t *s_humidity_series;
 
 /* Fast feedback is serviced by the 16 ms UI task. Snapshot-driven controls
  * are capped at 20 Hz, dimmer housekeeping at 10 Hz, and static text at 1 Hz. */
 static constexpr uint32_t NORMAL_REFRESH_MS = 50;
 static constexpr uint32_t HOUSEKEEPING_REFRESH_MS = 100;
 static constexpr uint32_t SLOW_REFRESH_MS = 1000;
+
+static void formatX100(char *output, size_t size, int32_t value);
+
+static NodeHistory *historyFor(uint8_t node_id, bool create) {
+    NodeHistory *empty = nullptr;
+    for (auto &history : s_histories) {
+        if (history.node_id == node_id) return &history;
+        if (!history.node_id && !empty) empty = &history;
+    }
+    if (!create || !empty) return nullptr;
+    memset(empty, 0, sizeof(*empty));
+    empty->node_id = node_id;
+    empty->last_uptime_ms = UINT32_MAX;
+    return empty;
+}
+
+static const display_node_t *nodeById(const display_snapshot_t &snapshot,
+                                      uint8_t node_id) {
+    for (const auto &node : snapshot.nodes) {
+        if (node.node_id == node_id) return &node;
+    }
+    return nullptr;
+}
+
+static void renderHistory(uint8_t node_id) {
+    NodeHistory *history = historyFor(node_id, false);
+    const display_node_t *node = nodeById(s_current, node_id);
+    if (!history || !node) return;
+
+    if (!s_temperature_series) {
+        s_temperature_series = lv_chart_add_series(
+            ui_history_chart, COLOR_ORANGE, LV_CHART_AXIS_PRIMARY_Y);
+        s_humidity_series = lv_chart_add_series(
+            ui_history_chart, COLOR_BLUE, LV_CHART_AXIS_SECONDARY_Y);
+    }
+    const uint8_t point_count = history->count > 1 ? history->count : 2;
+    lv_chart_set_point_count(ui_history_chart, point_count);
+    lv_chart_set_all_value(ui_history_chart, s_temperature_series,
+                           LV_CHART_POINT_NONE);
+    lv_chart_set_all_value(ui_history_chart, s_humidity_series,
+                           LV_CHART_POINT_NONE);
+    const uint8_t start =
+        (uint8_t)((history->head + HISTORY_CAPACITY - history->count) %
+                  HISTORY_CAPACITY);
+    for (uint8_t i = 0; i < history->count; ++i) {
+        const uint8_t source = (uint8_t)((start + i) % HISTORY_CAPACITY);
+        const uint8_t target = history->count == 1 ? 1 : i;
+        lv_chart_set_value_by_id(ui_history_chart, s_temperature_series,
+                                 target, history->temperature_x10[source]);
+        lv_chart_set_value_by_id(ui_history_chart, s_humidity_series,
+                                 target, history->humidity_x10[source]);
+    }
+    char temperature[12], humidity[12];
+    formatX100(temperature, sizeof(temperature), node->temperature_x100);
+    formatX100(humidity, sizeof(humidity), node->humidity_x100);
+    lv_label_set_text_fmt(ui_history_title, "NODE %u TREND", node_id);
+    lv_label_set_text_fmt(ui_history_values, "%s C   |   %s %%RH",
+                          temperature, humidity);
+    lv_label_set_text_fmt(ui_history_hint,
+                          "%u of %u recent samples  |  orange temperature  |  blue humidity",
+                          history->count, HISTORY_CAPACITY);
+    lv_chart_refresh(ui_history_chart);
+}
+
+static void recordHistory(const display_snapshot_t &snapshot) {
+    for (const auto &node : snapshot.nodes) {
+        if (!node.node_id || !node.active) continue;
+        NodeHistory *history = historyFor(node.node_id, true);
+        if (!history || history->last_uptime_ms == snapshot.uptime_ms) continue;
+        history->temperature_x10[history->head] =
+            (int16_t)(node.temperature_x100 / 10);
+        history->humidity_x10[history->head] =
+            (int16_t)(node.humidity_x100 / 10);
+        history->head = (uint8_t)((history->head + 1) % HISTORY_CAPACITY);
+        if (history->count < HISTORY_CAPACITY) ++history->count;
+        history->last_uptime_ms = snapshot.uptime_ms;
+        if (s_history_node_id == node.node_id &&
+            !lv_obj_has_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN)) {
+            renderHistory(node.node_id);
+        }
+    }
+}
 
 static void formatX100(char *output, size_t size, int32_t value) {
     const bool negative = value < 0;
@@ -199,8 +299,9 @@ static void refreshDashboard(const display_snapshot_t &snapshot, bool force) {
             const int32_t temperature_percent =
                 ((int32_t)node.temperature_x100 + 1000) * 100 / 6000; /* -10..50 C */
             const int32_t humidity_percent = node.humidity_x100 / 100;
-            setArcTarget(ui_temperature_arcs[slot], temperature_percent, !first);
-            setArcTarget(ui_humidity_arcs[slot], humidity_percent, !first);
+            const bool animate = !first && s_active_tab == 0;
+            setArcTarget(ui_temperature_arcs[slot], temperature_percent, animate);
+            setArcTarget(ui_humidity_arcs[slot], humidity_percent, animate);
         }
         if (!old || node.lqi != old->lqi || node.age_ms / 1000 != old->age_ms / 1000 ||
             node.battery_percent != old->battery_percent) {
@@ -259,45 +360,56 @@ static void refreshSensors(const display_snapshot_t &snapshot, bool force) {
     }
     const uint8_t page_count = paired_count ? (uint8_t)((paired_count + 3) / 4) : 1;
     if (s_sensor_page >= page_count) s_sensor_page = page_count - 1;
-    lv_label_set_text_fmt(ui_sensor_page_label, "PAGE %u / %u",
-                          s_sensor_page + 1, page_count);
-    if (s_sensor_page == 0)
-        lv_obj_add_state(ui_sensor_previous_button, LV_STATE_DISABLED);
-    else
-        lv_obj_clear_state(ui_sensor_previous_button, LV_STATE_DISABLED);
-    if (s_sensor_page + 1 >= page_count)
-        lv_obj_add_state(ui_sensor_next_button, LV_STATE_DISABLED);
-    else
-        lv_obj_clear_state(ui_sensor_next_button, LV_STATE_DISABLED);
+    if (force || s_sensor_page != s_sensor_page_rendered ||
+        page_count != s_sensor_page_count_rendered) {
+        lv_label_set_text_fmt(ui_sensor_page_label, "PAGE %u / %u",
+                              s_sensor_page + 1, page_count);
+        if (s_sensor_page == 0)
+            lv_obj_add_state(ui_sensor_previous_button, LV_STATE_DISABLED);
+        else
+            lv_obj_clear_state(ui_sensor_previous_button, LV_STATE_DISABLED);
+        if (s_sensor_page + 1 >= page_count)
+            lv_obj_add_state(ui_sensor_next_button, LV_STATE_DISABLED);
+        else
+            lv_obj_clear_state(ui_sensor_next_button, LV_STATE_DISABLED);
+        s_sensor_page_rendered = s_sensor_page;
+        s_sensor_page_count_rendered = page_count;
+    }
 
     const uint8_t page_start = s_sensor_page * 4;
     for (uint8_t row = 0; row < 4; ++row) {
         const uint8_t index = page_start + row;
         const display_node_t *node = index < paired_count ? paired[index] : nullptr;
         s_sensor_row_node_ids[row] = node ? node->node_id : 0;
+        char row_text[112];
         if (node) {
             char temperature[12];
             char humidity[12];
             formatX100(temperature, sizeof(temperature), node->temperature_x100);
             formatX100(humidity, sizeof(humidity), node->humidity_x100);
             if (node->battery_percent == BATTERY_PCT_UNKNOWN) {
-                lv_label_set_text_fmt(ui_node_details[row],
-                                      "NODE %u   %s C   %s %%RH   batt --   LQI %u   %lus%s",
-                                      node->node_id, temperature, humidity, node->lqi,
-                                      (unsigned long)(node->age_ms / 1000UL),
-                                      node->active ? "" : "   STALE");
+                snprintf(row_text, sizeof(row_text),
+                         "NODE %u   %s C   %s %%RH   batt --   LQI %u   %lus%s",
+                         node->node_id, temperature, humidity, node->lqi,
+                         (unsigned long)(node->age_ms / 1000UL),
+                         node->active ? "" : "   STALE");
             } else {
-                lv_label_set_text_fmt(ui_node_details[row],
-                                      "NODE %u   %s C   %s %%RH   batt %u%%   LQI %u   %lus%s",
-                                      node->node_id, temperature, humidity,
-                                      node->battery_percent, node->lqi,
-                                      (unsigned long)(node->age_ms / 1000UL),
-                                      node->active ? "" : "   STALE");
+                snprintf(row_text, sizeof(row_text),
+                         "NODE %u   %s C   %s %%RH   batt %u%%   LQI %u   %lus%s",
+                         node->node_id, temperature, humidity,
+                         node->battery_percent, node->lqi,
+                         (unsigned long)(node->age_ms / 1000UL),
+                         node->active ? "" : "   STALE");
             }
             lv_obj_clear_flag(ui_forget_node_buttons[row], LV_OBJ_FLAG_HIDDEN);
         } else {
-            lv_label_set_text(ui_node_details[row], "Not paired");
+            snprintf(row_text, sizeof(row_text), "Not paired");
             lv_obj_add_flag(ui_forget_node_buttons[row], LV_OBJ_FLAG_HIDDEN);
+        }
+        if (force || strcmp(row_text, s_sensor_row_text[row]) != 0) {
+            lv_label_set_text(ui_node_details[row], row_text);
+            snprintf(s_sensor_row_text[row], sizeof(s_sensor_row_text[row]),
+                     "%s", row_text);
         }
     }
 }
@@ -584,6 +696,7 @@ static void refreshController(bool force) {
             s_current = snapshot;
             s_has_snapshot = true;
             s_snapshot_received_at = now;
+            recordHistory(snapshot);
         }
         const uint8_t active = (uint8_t)lv_tabview_get_tab_act(ui_main_tabs);
         const bool tab_changed = active != s_active_tab;
@@ -655,6 +768,23 @@ extern "C" void action_status_detail(lv_event_t *event) {
         break;
     }
     toast(detail, COLOR_ORANGE);
+}
+
+extern "C" void action_node_history(lv_event_t *event) {
+    if (!s_has_snapshot) return;
+    const uint8_t slot = (uint8_t)(uintptr_t)lv_event_get_user_data(event);
+    const display_node_t *visible[2] = {nullptr, nullptr};
+    const uint8_t count = collectVisibleNodes(s_current, visible);
+    if (slot >= count || !visible[slot]) return;
+    s_history_node_id = visible[slot]->node_id;
+    renderHistory(s_history_node_id);
+    lv_obj_clear_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ui_history_overlay);
+}
+
+extern "C" void action_close_history(lv_event_t *) {
+    lv_obj_add_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN);
+    s_history_node_id = 0;
 }
 
 extern "C" void action_relay_toggle(lv_event_t *event) {

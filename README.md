@@ -953,7 +953,7 @@ From PowerShell at the repository root:
 # Link and exercise all five tabs plus relay and pairing native actions.
 .\scripts\hmi-simulator.ps1 -Action test
 
-# Refresh the committed 800x480 Dashboard and Programs PNGs.
+# Refresh the committed 800x480 PNG for every HMI screen.
 .\scripts\hmi-simulator.ps1 -Action capture
 
 # Remove only simulator build products.
@@ -969,16 +969,27 @@ The first build downloads pinned `lvgl v8.4.0` and `lv_drivers v8.3.0` into
 The mock backend provides live sensor drift, relay/mode validation, queue
 progress, pairing countdown, network diagnostics and ACK/NACK responses. Its
 self-test covers zero/one/two/more paired sensors, the two-node display limit,
-status icon states/details, radial updates, all five tabs, mode changes,
-read-only queue/rule tables, and the absence of program-write callbacks.
+status icon states/details, radial updates, node trend open/close, all five
+tabs, mode changes, read-only queue/rule tables, and the absence of
+program-write callbacks.
 
 Pixel-exact means that LVGL produces the same 800×480 framebuffer geometry and
 RGB565 values. Physical LCD gamma, viewing angle and backlight cannot be
 reproduced by a desktop monitor.
 
-![Native LVGL dashboard simulator](hmi/simulator-dashboard.png)
+![Dashboard](hmi/dashboard.png)
 
-![Native LVGL read-only Programs simulator](hmi/simulator-programs.png)
+![Node trend](hmi/node-trend.png)
+
+![Relays](hmi/relays.png)
+
+![Sensors](hmi/sensors.png)
+
+![Programs queue](hmi/programs-queue.png)
+
+![Programs automation](hmi/programs-automation.png)
+
+![System](hmi/system.png)
 
 ### Visual editing with EEZ Studio
 

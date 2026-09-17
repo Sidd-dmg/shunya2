@@ -1,13 +1,14 @@
 #include "ui.h"
 #include <stdint.h>
 
-#define COLOR_BG       lv_color_hex(0x07111F)
-#define COLOR_PANEL    lv_color_hex(0x102238)
-#define COLOR_PANEL_2  lv_color_hex(0x193149)
-#define COLOR_TEXT     lv_color_hex(0xF4F7FB)
-#define COLOR_MUTED    lv_color_hex(0x91A4B8)
-#define COLOR_ORANGE   lv_color_hex(0xF97316)
-#define COLOR_GREEN    lv_color_hex(0x22C55E)
+#define COLOR_BG       lv_color_hex(0x07131F)
+#define COLOR_PANEL    lv_color_hex(0x102235)
+#define COLOR_PANEL_2  lv_color_hex(0x1A344D)
+#define COLOR_TEXT     lv_color_hex(0xF7FAFC)
+#define COLOR_MUTED    lv_color_hex(0x9AAFC2)
+#define COLOR_ORANGE   lv_color_hex(0xFF8733)
+#define COLOR_GREEN    lv_color_hex(0x34D399)
+#define COLOR_BLUE     lv_color_hex(0x38BDF8)
 
 lv_obj_t *ui_screen;
 lv_obj_t *ui_header;
@@ -34,6 +35,13 @@ lv_obj_t *ui_humidity_arcs[2];
 lv_obj_t *ui_humidity_values[2];
 lv_obj_t *ui_node_meta[2];
 lv_obj_t *ui_no_nodes;
+lv_obj_t *ui_history_overlay;
+lv_obj_t *ui_history_card;
+lv_obj_t *ui_history_title;
+lv_obj_t *ui_history_values;
+lv_obj_t *ui_history_hint;
+lv_obj_t *ui_history_chart;
+lv_obj_t *ui_history_close_button;
 lv_obj_t *ui_relay_buttons[4];
 lv_obj_t *ui_relay_labels[4];
 lv_obj_t *ui_all_off_button;
@@ -72,7 +80,7 @@ static void style_panel(lv_obj_t *obj) {
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(obj, 1, 0);
     lv_obj_set_style_border_color(obj, COLOR_PANEL_2, 0);
-    lv_obj_set_style_radius(obj, 14, 0);
+    lv_obj_set_style_radius(obj, 16, 0);
     lv_obj_set_style_pad_all(obj, 12, 0);
     lv_obj_set_style_text_color(obj, COLOR_TEXT, 0);
 }
@@ -98,6 +106,12 @@ static void style_tab_buttons(lv_obj_t *tabview) {
                               LV_PART_ITEMS | LV_STATE_CHECKED);
     lv_obj_set_style_bg_opa(buttons, LV_OPA_COVER,
                             LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_border_width(buttons, 3,
+                                  LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_border_side(buttons, LV_BORDER_SIDE_TOP,
+                                 LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_border_color(buttons, COLOR_ORANGE,
+                                  LV_PART_ITEMS | LV_STATE_CHECKED);
 }
 
 static lv_obj_t *make_label(lv_obj_t *parent, const char *text, const lv_font_t *font) {
@@ -114,8 +128,10 @@ static lv_obj_t *make_button(lv_obj_t *parent, const char *text,
     lv_obj_set_size(button, 128, 46);
     lv_obj_set_style_bg_color(button, COLOR_PANEL_2, 0);
     lv_obj_set_style_bg_color(button, COLOR_ORANGE, LV_STATE_PRESSED);
-    lv_obj_set_style_transform_width(button, -3, LV_STATE_PRESSED);
-    lv_obj_set_style_transform_height(button, -3, LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(button, COLOR_ORANGE, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(button, 1, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(0x2C4A64), 0);
+    lv_obj_set_style_border_width(button, 0, LV_STATE_PRESSED);
     lv_obj_set_style_radius(button, 10, 0);
     lv_obj_set_style_shadow_width(button, 0, 0);
     lv_obj_add_event_cb(button, callback, LV_EVENT_CLICKED, data);
@@ -184,6 +200,10 @@ static void create_dashboard(void) {
         lv_obj_set_size(panel, 370, 238);
         style_panel(panel);
         lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(panel, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_style_bg_color(panel, COLOR_PANEL_2, LV_STATE_PRESSED);
+        lv_obj_add_event_cb(panel, action_node_history, LV_EVENT_CLICKED,
+                            (void *)(uintptr_t)i);
         ui_node_panels[i] = panel;
 
         ui_node_titles[i] = make_label(panel, "NODE", &lv_font_montserrat_20);
@@ -213,6 +233,10 @@ static void create_dashboard(void) {
         ui_node_meta[i] = make_label(panel, "LQI --  |  waiting", &lv_font_montserrat_14);
         lv_obj_align(ui_node_meta[i], LV_ALIGN_BOTTOM_MID, 0, 1);
         lv_obj_set_style_text_color(ui_node_meta[i], COLOR_MUTED, 0);
+
+        lv_obj_t *tap_hint = make_label(panel, "TAP FOR TREND", &lv_font_montserrat_14);
+        lv_obj_align(tap_hint, LV_ALIGN_TOP_RIGHT, 0, 1);
+        lv_obj_set_style_text_color(tap_hint, COLOR_BLUE, 0);
     }
 
     ui_no_nodes = make_label(ui_dashboard_nodes,
@@ -362,7 +386,7 @@ static void create_programs(void) {
     ui_program_tabs = lv_tabview_create(ui_tab_programs, LV_DIR_TOP, 38);
     lv_obj_set_pos(ui_program_tabs, 10, 72);
     lv_obj_set_size(ui_program_tabs, 760, 294);
-    lv_obj_set_style_anim_time(ui_program_tabs, 100, 0);
+    lv_obj_set_style_anim_time(ui_program_tabs, 70, 0);
     style_tab_buttons(ui_program_tabs);
     ui_queue_tab = lv_tabview_add_tab(ui_program_tabs, "QUEUE STEPS");
     ui_automation_tab = lv_tabview_add_tab(ui_program_tabs, "AUTOMATION RULES");
@@ -498,7 +522,7 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
     lv_obj_set_pos(ui_main_tabs, 0, 52);
     lv_obj_set_size(ui_main_tabs, 800, 428);
     lv_obj_set_style_bg_color(ui_main_tabs, COLOR_BG, 0);
-    lv_obj_set_style_anim_time(ui_main_tabs, 120, 0);
+    lv_obj_set_style_anim_time(ui_main_tabs, 80, 0);
     style_tab_buttons(ui_main_tabs);
     ui_tab_dashboard = lv_tabview_add_tab(ui_main_tabs, "Dashboard");
     ui_tab_relays = lv_tabview_add_tab(ui_main_tabs, "Relays");
@@ -527,6 +551,58 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
     lv_obj_set_style_bg_opa(ui_dimmer, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(ui_dimmer, 0, 0);
     lv_obj_clear_flag(ui_dimmer, LV_OBJ_FLAG_CLICKABLE);
+
+    ui_history_overlay = lv_obj_create(ui_screen);
+    lv_obj_set_size(ui_history_overlay, 800, 480);
+    lv_obj_set_style_bg_color(ui_history_overlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(ui_history_overlay, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(ui_history_overlay, 0, 0);
+    lv_obj_set_style_pad_all(ui_history_overlay, 0, 0);
+    lv_obj_clear_flag(ui_history_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(ui_history_overlay, action_close_history,
+                        LV_EVENT_CLICKED, NULL);
+
+    ui_history_card = lv_obj_create(ui_history_overlay);
+    lv_obj_set_size(ui_history_card, 650, 338);
+    lv_obj_center(ui_history_card);
+    style_panel(ui_history_card);
+    lv_obj_set_style_border_width(ui_history_card, 2, 0);
+    lv_obj_set_style_border_color(ui_history_card, lv_color_hex(0x2A4A64), 0);
+    lv_obj_clear_flag(ui_history_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    ui_history_title = make_label(ui_history_card, "NODE TREND",
+                                  &lv_font_montserrat_24);
+    lv_obj_set_pos(ui_history_title, 10, 4);
+    ui_history_values = make_label(ui_history_card, "--.- C   |   --.- %RH",
+                                   &lv_font_montserrat_18);
+    lv_obj_set_pos(ui_history_values, 10, 38);
+    ui_history_hint = make_label(ui_history_card, "Recent display-session history",
+                                 &lv_font_montserrat_14);
+    lv_obj_set_pos(ui_history_hint, 10, 67);
+    lv_obj_set_style_text_color(ui_history_hint, COLOR_MUTED, 0);
+
+    ui_history_close_button = make_button(ui_history_card, LV_SYMBOL_CLOSE,
+                                          action_close_history, NULL);
+    lv_obj_set_size(ui_history_close_button, 42, 38);
+    lv_obj_align(ui_history_close_button, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+    ui_history_chart = lv_chart_create(ui_history_card);
+    lv_obj_set_pos(ui_history_chart, 10, 98);
+    lv_obj_set_size(ui_history_chart, 606, 205);
+    lv_chart_set_type(ui_history_chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_point_count(ui_history_chart, 60);
+    lv_chart_set_div_line_count(ui_history_chart, 5, 6);
+    lv_chart_set_range(ui_history_chart, LV_CHART_AXIS_PRIMARY_Y, -100, 500);
+    lv_chart_set_range(ui_history_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 1000);
+    lv_obj_set_style_bg_color(ui_history_chart, COLOR_BG, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(ui_history_chart, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_history_chart, COLOR_PANEL_2, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_history_chart, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_history_chart, 10, LV_PART_MAIN);
+    lv_obj_set_style_line_color(ui_history_chart, COLOR_PANEL_2, LV_PART_MAIN);
+    lv_obj_set_style_line_width(ui_history_chart, 1, LV_PART_MAIN);
+    lv_obj_set_style_size(ui_history_chart, 0, LV_PART_INDICATOR);
+    lv_obj_add_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN);
 
     if (!parent) lv_scr_load(ui_screen);
     return ui_screen;

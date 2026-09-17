@@ -13,9 +13,11 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
+import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -384,6 +386,41 @@ def simulator_setup() -> int:
     return 0
 
 
+def bmp_to_png(source: Path, destination: Path) -> None:
+    """Convert SDL's uncompressed 32-bit BMP using only the standard library."""
+    data = source.read_bytes()
+    if data[:2] != b"BM":
+        raise BuildError(f"Invalid BMP capture: {source}")
+    pixel_offset = struct.unpack_from("<I", data, 10)[0]
+    width, signed_height = struct.unpack_from("<ii", data, 18)
+    planes, bits = struct.unpack_from("<HH", data, 26)
+    compression = struct.unpack_from("<I", data, 30)[0]
+    if width <= 0 or not signed_height or planes != 1 or bits != 32 or compression != 0:
+        raise BuildError(f"Unsupported BMP capture format: {source}")
+    height = abs(signed_height)
+    row_size = width * 4
+    rows = []
+    for output_y in range(height):
+        source_y = height - 1 - output_y if signed_height > 0 else output_y
+        row = data[pixel_offset + source_y * row_size:
+                   pixel_offset + (source_y + 1) * row_size]
+        rgba = bytearray(row_size)
+        for x in range(width):
+            blue, green, red, alpha = row[x * 4:x * 4 + 4]
+            rgba[x * 4:x * 4 + 4] = bytes((red, green, blue, alpha or 255))
+        rows.append(b"\x00" + bytes(rgba))
+
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        return (struct.pack(">I", len(payload)) + kind + payload +
+                struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF))
+
+    png = (b"\x89PNG\r\n\x1a\n" +
+           chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) +
+           chunk(b"IDAT", zlib.compress(b"".join(rows), 9)) +
+           chunk(b"IEND", b""))
+    destination.write_bytes(png)
+
+
 def cmd_simulator(action: str) -> int:
     sim = REPO_ROOT / "simulator"
     build = sim / "build"
@@ -424,9 +461,19 @@ def cmd_simulator(action: str) -> int:
     if action == "test":
         return subprocess.call([str(exe), "--self-test"])
     if action == "capture":
-        dashboard = REPO_ROOT / "hmi" / "simulator-dashboard.bmp"
-        programs = REPO_ROOT / "hmi" / "simulator-programs.bmp"
-        return subprocess.call([str(exe), "--capture", str(dashboard), str(programs)])
+        hmi = REPO_ROOT / "hmi"
+        code = subprocess.call([str(exe), "--capture-all", str(hmi)])
+        if code:
+            return code
+        for name in (
+            "dashboard", "node-trend", "relays", "sensors",
+            "programs-queue", "programs-automation", "system",
+        ):
+            bmp = hmi / f"{name}.bmp"
+            bmp_to_png(bmp, hmi / f"{name}.png")
+            bmp.unlink()
+        print("[shunya-build] PNG screenshots updated under hmi/.")
+        return 0
     return 0
 
 

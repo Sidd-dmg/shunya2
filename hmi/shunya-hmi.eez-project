@@ -71,7 +71,9 @@
     {"objID":"95db0dca-7425-4a1a-a42b-020000000024","components":[],"connectionLines":[],"localVariables":[],"name":"test_display","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000025","components":[],"connectionLines":[],"localVariables":[],"name":"reset_wifi","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000026","components":[],"connectionLines":[],"localVariables":[],"name":"brightness_changed","implementationType":"native"},
-    {"objID":"95db0dca-7425-4a1a-a42b-020000000027","components":[],"connectionLines":[],"localVariables":[],"name":"timeout_changed","implementationType":"native"}
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000027","components":[],"connectionLines":[],"localVariables":[],"name":"timeout_changed","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000028","components":[],"connectionLines":[],"localVariables":[],"name":"node_history","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-020000000029","components":[],"connectionLines":[],"localVariables":[],"name":"close_history","implementationType":"native"}
   ],
   "userPages": [
     {
@@ -128,7 +130,7 @@
                     {"objID":"95db0dca-7425-4a1a-a42b-030000000012","type":"LVGLLabelWidget","left":18,"top":10,"width":330,"height":28,"identifier":"dashboard_title","text":"ENVIRONMENT OVERVIEW","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000012","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_20"}}}}},
                     {"objID":"95db0dca-7425-4a1a-a42b-030000000013","type":"LVGLLabelWidget","left":540,"top":14,"width":220,"height":22,"identifier":"mode_status","text":"MODE  --","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000013","definition":{"MAIN":{"DEFAULT":{"text_color":"#F59E0B"}}}}},
                     {"objID":"95db0dca-7425-4a1a-a42b-030000000150","type":"LVGLPanelWidget","left":18,"top":50,"width":744,"height":274,"identifier":"dashboard_empty_state","children":[{"objID":"95db0dca-7425-4a1a-a42b-030000000151","type":"LVGLLabelWidget","left":190,"top":104,"width":364,"height":64,"identifier":"dashboard_empty_message","text":"NO PAIRED SENSOR NODES\\nPair up to two nodes from Sensors","textType":"literal","children":[]}],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000150","definition":{"MAIN":{"DEFAULT":{"bg_color":"#0B1727","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}},
-                    {"objID":"95db0dca-7425-4a1a-a42b-030000000014","type":"LVGLPanelWidget","left":18,"top":50,"width":365,"height":274,"identifier":"node_panel_1","hiddenFlag":true,"children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000014","type":"LVGLPanelWidget","left":18,"top":50,"width":365,"height":274,"identifier":"node_panel_1","hiddenFlag":true,"eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000114","eventName":"CLICKED","handlerType":"action","action":"node_history"}],"children":[
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000114","type":"LVGLLabelWidget","left":16,"top":14,"width":200,"height":24,"identifier":"node_name_1","text":"NODE 01","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000114","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_18"}}}}},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000115","type":"LVGLLabelWidget","left":258,"top":16,"width":88,"height":20,"identifier":"node_pair_state_1","text":"PAIRED","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000115","definition":{"MAIN":{"DEFAULT":{"text_color":"#22C55E"}}}}},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000116","type":"LVGLArcWidget","left":32,"top":58,"width":128,"height":128,"identifier":"temperature_arc_1","min":-40,"max":80,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000116","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#F59E0B","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
@@ -137,9 +139,10 @@
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000119","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_1","text":"--.- %","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000120","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000126","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000127","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_1","text":"Last update  --","textType":"literal","children":[]}
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000127","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_1","text":"Last update  --","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000152","type":"LVGLLabelWidget","left":218,"top":14,"width":128,"height":20,"text":"TAP FOR TREND","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000152","definition":{"MAIN":{"DEFAULT":{"text_color":"#38BDF8"}}}}}
                     ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000014","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}},
-                    {"objID":"95db0dca-7425-4a1a-a42b-030000000015","type":"LVGLPanelWidget","left":397,"top":50,"width":365,"height":274,"identifier":"node_panel_2","hiddenFlag":true,"children":[
+                    {"objID":"95db0dca-7425-4a1a-a42b-030000000015","type":"LVGLPanelWidget","left":397,"top":50,"width":365,"height":274,"identifier":"node_panel_2","hiddenFlag":true,"eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000115","eventName":"CLICKED","handlerType":"action","action":"node_history"}],"children":[
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000128","type":"LVGLLabelWidget","left":16,"top":14,"width":200,"height":24,"identifier":"node_name_2","text":"NODE 02","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000128","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_18"}}}}},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000129","type":"LVGLLabelWidget","left":258,"top":16,"width":88,"height":20,"identifier":"node_pair_state_2","text":"PAIRED","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000129","definition":{"MAIN":{"DEFAULT":{"text_color":"#22C55E"}}}}},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000130","type":"LVGLArcWidget","left":32,"top":58,"width":128,"height":128,"identifier":"temperature_arc_2","min":-40,"max":80,"value":0,"valueType":"literal","startAngle":135,"endAngle":45,"bgStartAngle":135,"bgEndAngle":45,"children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000130","definition":{"MAIN":{"DEFAULT":{"arc_color":"#24344A","arc_width":12}},"INDICATOR":{"DEFAULT":{"arc_color":"#F59E0B","arc_width":12}},"KNOB":{"DEFAULT":{"bg_opa":0}}}}},
@@ -148,7 +151,8 @@
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000135","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_2","text":"--.- %","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000136","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000137","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000138","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_2","text":"Last update  --","textType":"literal","children":[]}
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000138","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_2","text":"Last update  --","textType":"literal","children":[]},
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000153","type":"LVGLLabelWidget","left":218,"top":14,"width":128,"height":20,"text":"TAP FOR TREND","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000153","definition":{"MAIN":{"DEFAULT":{"text_color":"#38BDF8"}}}}}
                     ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000015","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}}
                   ],
                   "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000011","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":0}}}}
@@ -228,7 +232,28 @@
                   "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000090","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":12}}}}
                 }
               ],
-              "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000010","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC"}},"ITEMS":{"DEFAULT":{"bg_color":"#111E2F","text_color":"#8DA0B8"},"CHECKED":{"bg_color":"#F59E0B","text_color":"#07111F"}}}}
+              "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000010","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07131F","text_color":"#F7FAFC"}},"ITEMS":{"DEFAULT":{"bg_color":"#102235","text_color":"#9AAFC2"},"CHECKED":{"bg_color":"#1A344D","text_color":"#FF8733"}}}}
+            },
+            {
+              "objID":"95db0dca-7425-4a1a-a42b-030000000154",
+              "type":"LVGLPanelWidget",
+              "left":0,
+              "top":0,
+              "width":800,
+              "height":480,
+              "identifier":"history_overlay",
+              "hiddenFlag":true,
+              "eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000154","eventName":"CLICKED","handlerType":"action","action":"close_history"}],
+              "children":[
+                {"objID":"95db0dca-7425-4a1a-a42b-030000000155","type":"LVGLPanelWidget","left":75,"top":71,"width":650,"height":338,"identifier":"history_card","children":[
+                  {"objID":"95db0dca-7425-4a1a-a42b-030000000156","type":"LVGLLabelWidget","left":22,"top":18,"width":300,"height":32,"identifier":"history_title","text":"NODE TREND","textType":"literal","children":[]},
+                  {"objID":"95db0dca-7425-4a1a-a42b-030000000157","type":"LVGLLabelWidget","left":22,"top":55,"width":300,"height":26,"identifier":"history_values","text":"--.- C  |  --.- %RH","textType":"literal","children":[]},
+                  {"objID":"95db0dca-7425-4a1a-a42b-030000000158","type":"LVGLLabelWidget","left":22,"top":82,"width":500,"height":20,"identifier":"history_hint","text":"Recent display-session history","textType":"literal","children":[]},
+                  {"objID":"95db0dca-7425-4a1a-a42b-030000000159","type":"LVGLChartWidget","left":22,"top":112,"width":606,"height":205,"identifier":"history_chart","children":[]},
+                  {"objID":"95db0dca-7425-4a1a-a42b-030000000160","type":"LVGLButtonWidget","left":586,"top":12,"width":42,"height":38,"identifier":"history_close_button","eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000160","eventName":"CLICKED","handlerType":"action","action":"close_history"}],"children":[]}
+                ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000155","definition":{"MAIN":{"DEFAULT":{"bg_color":"#102235","border_color":"#2A4A64","border_width":2,"radius":16,"pad_all":0,"text_color":"#F7FAFC"}}}}}
+              ],
+              "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000154","definition":{"MAIN":{"DEFAULT":{"bg_color":"#000000","bg_opa":153,"border_width":0,"pad_all":0}}}}
             }
           ],
           "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000002","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","border_width":0,"pad_all":0}}}}

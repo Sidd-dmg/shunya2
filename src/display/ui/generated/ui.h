@@ -45,6 +45,13 @@ extern lv_obj_t *ui_humidity_arcs[2];
 extern lv_obj_t *ui_humidity_values[2];
 extern lv_obj_t *ui_node_meta[2];
 extern lv_obj_t *ui_no_nodes;
+extern lv_obj_t *ui_history_overlay;
+extern lv_obj_t *ui_history_card;
+extern lv_obj_t *ui_history_title;
+extern lv_obj_t *ui_history_values;
+extern lv_obj_t *ui_history_hint;
+extern lv_obj_t *ui_history_chart;
+extern lv_obj_t *ui_history_close_button;
 
 extern lv_obj_t *ui_relay_buttons[4];
 extern lv_obj_t *ui_relay_labels[4];
@@ -86,6 +93,8 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent);
 void shunya_ui_init(void);
 
 void action_status_detail(lv_event_t *event);
+void action_node_history(lv_event_t *event);
+void action_close_history(lv_event_t *event);
 void action_relay_toggle(lv_event_t *event);
 void action_all_relays_off(lv_event_t *event);
 void action_pairing_toggle(lv_event_t *event);

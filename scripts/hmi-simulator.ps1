@@ -131,25 +131,25 @@ if ($Action -eq "run") {
     Write-Host "[hmi-simulator] Running native interaction self-test..." -ForegroundColor Cyan
     Invoke-Ucrt64 "'$build/shunya-hmi-simulator.exe' --self-test"
 } elseif ($Action -eq "capture") {
-    Write-Host "[hmi-simulator] Capturing 800x480 Dashboard and Programs..." -ForegroundColor Cyan
-    $dashboardBmp = Join-Path $RepoRoot "hmi\simulator-dashboard.bmp"
-    $programsBmp = Join-Path $RepoRoot "hmi\simulator-programs.bmp"
-    $dashboardBmpMsys = Convert-ToMsysPath $dashboardBmp
-    $programsBmpMsys = Convert-ToMsysPath $programsBmp
-    Invoke-Ucrt64 "'$build/shunya-hmi-simulator.exe' --capture '$dashboardBmpMsys' '$programsBmpMsys'"
+    Write-Host "[hmi-simulator] Capturing every 800x480 HMI screen..." -ForegroundColor Cyan
+    $hmiRoot = Join-Path $RepoRoot "hmi"
+    $hmiRootMsys = Convert-ToMsysPath $hmiRoot
+    Invoke-Ucrt64 "'$build/shunya-hmi-simulator.exe' --capture-all '$hmiRootMsys'"
 
     Add-Type -AssemblyName System.Drawing
-    foreach ($capture in @(
-        @($dashboardBmp, (Join-Path $RepoRoot "hmi\simulator-dashboard.png")),
-        @($programsBmp, (Join-Path $RepoRoot "hmi\simulator-programs.png"))
+    foreach ($name in @(
+        "dashboard", "node-trend", "relays", "sensors",
+        "programs-queue", "programs-automation", "system"
     )) {
-        $image = [System.Drawing.Image]::FromFile($capture[0])
+        $bmp = Join-Path $hmiRoot "$name.bmp"
+        $png = Join-Path $hmiRoot "$name.png"
+        $image = [System.Drawing.Image]::FromFile($bmp)
         try {
-            $image.Save($capture[1], [System.Drawing.Imaging.ImageFormat]::Png)
+            $image.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
         } finally {
             $image.Dispose()
         }
-        Remove-Item -Force $capture[0]
+        Remove-Item -Force $bmp
     }
     Write-Host "[hmi-simulator] PNG screenshots updated under hmi\." -ForegroundColor Green
 }

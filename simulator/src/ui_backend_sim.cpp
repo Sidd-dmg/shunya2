@@ -15,6 +15,7 @@ bool s_ota_status_pending;
 uint16_t s_sequence = 1;
 uint32_t s_commands;
 std::array<uint32_t, 256> s_command_counts{};
+std::uint64_t s_last_snapshot_revision = UINT64_MAX;
 
 display_snapshot_t convert_snapshot(const hmi::GatewaySnapshot &source) {
     display_snapshot_t out{};
@@ -220,7 +221,10 @@ void reset_ui_backend_command_counts() {
 
 extern "C" bool uiBackendGetSnapshot(display_snapshot_t *snapshot) {
     if (!s_gateway || !snapshot) return false;
-    *snapshot = convert_snapshot(s_gateway->snapshot());
+    const auto source = s_gateway->snapshot();
+    if (source.revision == s_last_snapshot_revision) return false;
+    *snapshot = convert_snapshot(source);
+    s_last_snapshot_revision = source.revision;
     return true;
 }
 

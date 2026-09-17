@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdio>
 #include <exception>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -28,6 +29,10 @@ constexpr int kHeight = 480;
 constexpr int kDrawLines = 48;
 
 bool save_screenshot(const char *path) {
+    /* SDL's partial-flush renderer does not guarantee that unchanged regions
+     * remain in the readback target. Force one complete redraw so captures
+     * are deterministic and represent the whole physical panel. */
+    lv_obj_invalidate(lv_scr_act());
     lv_refr_now(nullptr);
     SDL_Window *window = SDL_GetWindowFromID(1);
     SDL_Renderer *renderer = window ? SDL_GetRenderer(window) : nullptr;
@@ -45,6 +50,16 @@ bool save_screenshot(const char *path) {
 bool color_is(lv_obj_t *object, lv_color_t expected) {
     return lv_color_to32(lv_obj_get_style_bg_color(object, LV_PART_MAIN)) ==
            lv_color_to32(expected);
+}
+
+void capture_tab(const std::filesystem::path &directory, std::uint16_t tab,
+                 const char *name) {
+    lv_tabview_set_act(ui_main_tabs, tab, LV_ANIM_OFF);
+    uiControllerRefreshNow();
+    lv_timer_handler();
+    const auto path = directory / (std::string(name) + ".bmp");
+    if (!save_screenshot(path.string().c_str()))
+        throw std::runtime_error(std::string(name) + " capture failed");
 }
 
 std::vector<hmi::Sensor> make_sensors(std::size_t count) {
@@ -187,9 +202,19 @@ int main(int argc, char **argv) {
             if (lv_arc_get_value(ui_temperature_arcs[0]) <= old_arc) {
                 throw std::runtime_error("radial animation self-test failed");
             }
+            lv_event_send(ui_node_panels[0], LV_EVENT_CLICKED, nullptr);
+            if (lv_obj_has_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN) ||
+                std::string(lv_label_get_text(ui_history_title)).find("NODE 1") ==
+                    std::string::npos) {
+                throw std::runtime_error("node history open self-test failed");
+            }
+            lv_event_send(ui_history_close_button, LV_EVENT_CLICKED, nullptr);
+            if (!lv_obj_has_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN)) {
+                throw std::runtime_error("node history close self-test failed");
+            }
 
-            const lv_color_t healthy = lv_color_hex(0x22C55E);
-            const lv_color_t offline = lv_color_hex(0x193149);
+            const lv_color_t healthy = lv_color_hex(0x34D399);
+            const lv_color_t offline = lv_color_hex(0x1A344D);
             if (!color_is(ui_status_chips[UI_STATUS_LINK], healthy) ||
                 !color_is(ui_status_chips[UI_STATUS_WIFI], healthy) ||
                 !color_is(ui_status_chips[UI_STATUS_MQTT], healthy) ||
@@ -267,24 +292,32 @@ int main(int argc, char **argv) {
             return 0;
         }
 
-        if (argc > 3 && std::string(argv[1]) == "--capture") {
-            lv_tabview_set_act(ui_main_tabs, 0, LV_ANIM_OFF);
-            uiControllerRefreshNow();
-            lv_timer_handler();
-            if (!save_screenshot(argv[2])) throw std::runtime_error("dashboard capture failed");
-            lv_tabview_set_act(ui_main_tabs, 3, LV_ANIM_OFF);
-            uiControllerRefreshNow();
-            lv_timer_handler();
-            if (!save_screenshot(argv[3])) throw std::runtime_error("programs capture failed");
-            /* Optional fourth path captures the System tab, where the slider
-             * and OTA controls live. */
-            if (argc > 4) {
-                lv_tabview_set_act(ui_main_tabs, 4, LV_ANIM_OFF);
+        if (argc > 2 && std::string(argv[1]) == "--capture-all") {
+            const std::filesystem::path directory(argv[2]);
+            std::filesystem::create_directories(directory);
+
+            for (int i = 0; i < 12; ++i) {
+                gateway.tick(1000);
                 uiControllerRefreshNow();
-                lv_timer_handler();
-                if (!save_screenshot(argv[4])) throw std::runtime_error("system capture failed");
             }
-            std::puts("HMI dashboard and Programs screenshots captured");
+            capture_tab(directory, 0, "dashboard");
+            lv_event_send(ui_node_panels[0], LV_EVENT_CLICKED, nullptr);
+            lv_timer_handler();
+            if (!save_screenshot((directory / "node-trend.bmp").string().c_str()))
+                throw std::runtime_error("node trend capture failed");
+            lv_event_send(ui_history_close_button, LV_EVENT_CLICKED, nullptr);
+
+            capture_tab(directory, 1, "relays");
+            gateway.setSensorsForTest(make_sensors(5));
+            capture_tab(directory, 2, "sensors");
+            capture_tab(directory, 3, "programs-queue");
+            lv_tabview_set_act(ui_program_tabs, 1, LV_ANIM_OFF);
+            uiControllerRefreshNow();
+            lv_timer_handler();
+            if (!save_screenshot((directory / "programs-automation.bmp").string().c_str()))
+                throw std::runtime_error("Programs Automation capture failed");
+            capture_tab(directory, 4, "system");
+            std::puts("HMI screenshots captured for every screen");
             return 0;
         }
 

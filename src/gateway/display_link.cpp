@@ -15,7 +15,11 @@
 #include "diagnostics.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <cstdio>
 #include <cstring>
+
+static_assert(RELAY_COUNT == DISPLAY_RELAY_COUNT, "HMI and gateway relay counts differ");
+static_assert(RELAY_COUNT <= 8, "relay_mask is a single byte");
 
 static display_parser_t s_parser;
 static DisplayLinkStats s_stats;
@@ -26,6 +30,13 @@ static uint32_t s_echo_started;
 static uint16_t s_last_command_sequence;
 static uint8_t s_last_command_type;
 static display_ack_status_t s_last_command_status = DISPLAY_ACK_OK;
+static bool s_last_valid;
+static bool s_last_resent;
+static uint8_t s_last_type;
+static uint16_t s_last_sequence;
+static uint16_t s_last_length;
+static uint8_t s_last_payload[DISPLAY_PROTO_MAX_PAYLOAD];
+static uint32_t s_last_retry_request_ms;
 
 static const char *displayTypeName(uint8_t type) {
     switch (type) {
@@ -37,6 +48,7 @@ static const char *displayTypeName(uint8_t type) {
         case DISPLAY_MSG_ECHO: return "ECHO";
         case DISPLAY_MSG_WIFI_CREDENTIALS: return "WIFI_CREDENTIALS";
         case DISPLAY_MSG_HMI_OTA_STATUS: return "HMI_OTA_STATUS";
+        case DISPLAY_MSG_WIFI_PROV: return "WIFI_PROV";
         case DISPLAY_CMD_RELAY: return "RELAY";
         case DISPLAY_CMD_MODE: return "MODE";
         case DISPLAY_CMD_PAIRING: return "PAIRING";
@@ -48,11 +60,14 @@ static const char *displayTypeName(uint8_t type) {
         case DISPLAY_CMD_LINK_TEST: return "LINK_TEST";
         case DISPLAY_CMD_HMI_OTA: return "HMI_OTA";
         case DISPLAY_CMD_SENSOR_SLEEP: return "SENSOR_SLEEP";
+        case DISPLAY_CMD_WIFI_PROV: return "WIFI_PROV";
+        case DISPLAY_MSG_LINK_RETRY: return "LINK_RETRY";
         default: return "OTHER";
     }
 }
 
-static bool sendFrame(uint8_t type, uint16_t sequence, const void *payload, uint16_t length) {
+static bool sendFrame(uint8_t type, uint16_t sequence, const void *payload, uint16_t length,
+                      bool remember = true) {
     /* Nearly 800 bytes, and modeTask and linkTestTask both send frames. The
      * UART mutex already serializes senders, so encode inside it and keep the
      * buffer in .bss instead of on each caller's stack. */
@@ -71,18 +86,53 @@ static bool sendFrame(uint8_t type, uint16_t sequence, const void *payload, uint
         return false;
     }
     DisplaySerial.write(frame, size);
-    DisplaySerial.flush();
+    /* A snapshot is most of the UART time. Flushing it here holds modeTask,
+     * so a touch command that arrived during the write cannot run until the
+     * whole frame has left the pin. Small frames still flush. */
+    if (size <= 64) {
+        DisplaySerial.flush();
+    }
     xSemaphoreGive(displayUartMutex);
+    if (remember && type != DISPLAY_MSG_LINK_RETRY && type != DISPLAY_MSG_HEARTBEAT) {
+        s_last_type = type;
+        s_last_sequence = sequence;
+        s_last_length = length;
+        if (length && payload) {
+            memcpy(s_last_payload, payload, length);
+        }
+        s_last_valid = true;
+        s_last_resent = false;
+    }
     ++s_stats.txFrames;
     s_stats.lastTxMs = millis();
     diagnosticsLog("displayTx", "sent type=%s seq=%u payload=%u frame=%u",
                    displayTypeName(type), sequence, length, (unsigned)size);
-    if (type != DISPLAY_MSG_SNAPSHOT && type != DISPLAY_MSG_WIFI_CREDENTIALS) {
+    if (type != DISPLAY_MSG_SNAPSHOT && type != DISPLAY_MSG_WIFI_CREDENTIALS &&
+        type != DISPLAY_MSG_WIFI_PROV) {
         diagnosticsHex("displayTx", "payload", (const uint8_t *)payload, length);
-    } else if (type == DISPLAY_MSG_WIFI_CREDENTIALS) {
-        diagnosticsLog("displayTx", "credential payload redacted");
+    } else if (type == DISPLAY_MSG_WIFI_CREDENTIALS || type == DISPLAY_MSG_WIFI_PROV) {
+        diagnosticsLog("displayTx", "sensitive payload redacted");
     }
     return true;
+}
+
+static void resendLastFrame() {
+    if (!s_last_valid || s_last_resent || s_last_type == DISPLAY_MSG_LINK_RETRY) {
+        return;
+    }
+    if (sendFrame(s_last_type, s_last_sequence,
+                  s_last_length ? s_last_payload : nullptr, s_last_length, false)) {
+        s_last_resent = true;
+    }
+}
+
+static void requestRetransmit() {
+    const uint32_t now = millis();
+    if (now - s_last_retry_request_ms < 30UL) {
+        return;
+    }
+    s_last_retry_request_ms = now;
+    sendFrame(DISPLAY_MSG_LINK_RETRY, s_tx_sequence++, nullptr, 0, false);
 }
 
 static void sendAck(uint16_t request, uint8_t command, display_ack_status_t status) {
@@ -97,6 +147,10 @@ static void onFrame(const display_frame_t *frame, void *) {
     diagnosticsLog("displayRx", "received type=%s seq=%u len=%u",
                    displayTypeName(frame->type), frame->sequence, frame->length);
     diagnosticsHex("displayRx", "payload", frame->payload, frame->length);
+    if (frame->type == DISPLAY_MSG_LINK_RETRY) {
+        resendLastFrame();
+        return;
+    }
     if (frame->type == DISPLAY_MSG_HMI_OTA_STATUS &&
         frame->length == sizeof(display_hmi_ota_status_t)) {
         display_hmi_ota_status_t status;
@@ -110,6 +164,9 @@ static void onFrame(const display_frame_t *frame, void *) {
     }
     if (frame->type == DISPLAY_MSG_ECHO && frame->sequence == s_echo_sequence) {
         if (s_echo_sem) xSemaphoreGive(s_echo_sem);
+        return;
+    }
+    if (frame->type == DISPLAY_MSG_HEARTBEAT) {
         return;
     }
     DisplayCommandItem item = {};
@@ -132,24 +189,30 @@ static void onFrame(const display_frame_t *frame, void *) {
 void displayBegin() {
     display_parser_init(&s_parser);
     s_echo_sem = xSemaphoreCreateBinary();
+    /* A complete state snapshot is close to the protocol's 780-byte maximum.
+     * The default Arduino UART RX buffer cannot absorb one while this task is
+     * preempted by Wi-Fi or MQTT work, causing intermittent frame corruption. */
+    DisplaySerial.setRxBufferSize(2048);
+    DisplaySerial.setTxBufferSize(2048);
     DisplaySerial.begin(DISPLAY_UART_BAUD, SERIAL_8N1, DISPLAY_UART_RX, DISPLAY_UART_TX);
 }
 
 void displayGetStats(DisplayLinkStats *stats) {
     if (stats) {
         *stats = s_stats;
-        stats->online = s_stats.online && millis() - s_stats.lastRxMs < 8000UL;
+        stats->online = s_stats.online &&
+                        millis() - s_stats.lastRxMs < DISPLAY_LINK_STALE_MS;
     }
 }
 
 void displayRxTask(void *) {
-    uint8_t rx[128];
+    uint8_t rx[512];
     for (;;) {
-        size_t count = 0;
-        while (DisplaySerial.available() && count < sizeof(rx)) {
-            rx[count++] = (uint8_t)DisplaySerial.read();
-        }
-        if (count) {
+        while (DisplaySerial.available()) {
+            size_t count = 0;
+            while (DisplaySerial.available() && count < sizeof(rx)) {
+                rx[count++] = (uint8_t)DisplaySerial.read();
+            }
             const uint32_t oldCrc = s_parser.crc_errors;
             const uint32_t oldFraming = s_parser.framing_errors;
             display_parser_push(&s_parser, rx, count, onFrame, nullptr);
@@ -163,8 +226,11 @@ void displayRxTask(void *) {
                                (unsigned long)s_parser.crc_errors,
                                (unsigned long)s_parser.framing_errors);
             }
+            if (s_parser.crc_errors != oldCrc) {
+                requestRetransmit();
+            }
         }
-        if (s_stats.online && millis() - s_stats.lastRxMs > 8000UL) {
+        if (s_stats.online && millis() - s_stats.lastRxMs > DISPLAY_LINK_STALE_MS) {
             s_stats.online = false;
         }
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -184,7 +250,7 @@ static void fillSnapshot(display_snapshot_t &out) {
     out.ota_available = ota_available;
     out.operation_mode = operationMode;
     if (relayMutex && xSemaphoreTake(relayMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        for (uint8_t i = 0; i < 4; ++i) {
+        for (uint8_t i = 0; i < RELAY_COUNT; ++i) {
             if (relayStates[i]) out.relay_mask |= (1u << i);
         }
         xSemaphoreGive(relayMutex);
@@ -205,7 +271,8 @@ static void fillSnapshot(display_snapshot_t &out) {
             out.nodes[i].humidity_x100 = (uint16_t)(nodes[i].lastHumidity * 100.0f);
             out.nodes[i].lqi = nodes[i].lqi;
             out.nodes[i].age_ms = nodes[i].lastSeen ? millis() - nodes[i].lastSeen : UINT32_MAX;
-            out.nodes[i].active = nodes[i].active && out.nodes[i].age_ms < 300000UL;
+            /* A paired node stays listed until FORGET. Age is informational. */
+            out.nodes[i].active = nodes[i].active;
             out.nodes[i].battery_percent = nodes[i].batteryPercent;
         }
         xSemaphoreGive(nodesMutex);
@@ -262,6 +329,10 @@ void displaySendSnapshot() {
     sendFrame(DISPLAY_MSG_SNAPSHOT, s_tx_sequence++, &snapshot, sizeof(snapshot));
 }
 
+void displaySendHeartbeat() {
+    sendFrame(DISPLAY_MSG_HEARTBEAT, s_tx_sequence++, nullptr, 0);
+}
+
 static display_ack_status_t processCommand(const DisplayCommandItem &item) {
     switch (item.type) {
         case DISPLAY_MSG_HELLO:
@@ -271,14 +342,19 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
         case DISPLAY_MSG_ECHO:
             sendFrame(DISPLAY_MSG_ECHO, item.sequence, item.payload, item.length);
             return DISPLAY_ACK_OK;
+        case DISPLAY_MSG_HEARTBEAT:
+            return DISPLAY_ACK_OK;
         case DISPLAY_CMD_RELAY: {
             if (item.length != sizeof(display_relay_command_t)) return DISPLAY_ACK_BAD_LENGTH;
             const display_relay_command_t *cmd = (const display_relay_command_t *)item.payload;
-            if (cmd->relay_index != 0xFF && cmd->relay_index >= 4) return DISPLAY_ACK_BAD_VALUE;
+            if (cmd->relay_index != 0xFF && cmd->relay_index >= RELAY_COUNT) return DISPLAY_ACK_BAD_VALUE;
             if (cmd->relay_index != 0xFF && operationMode != MODE_MANUAL) return DISPLAY_ACK_WRONG_MODE;
             if (cmd->relay_index == 0xFF) requestAllRelays(cmd->state != 0, 0);
             else requestRelay(cmd->relay_index, cmd->state != 0, 0);
-            if (operationMode == MODE_MANUAL) saveManualModeConfig();
+            if (operationMode == MODE_MANUAL) {
+                relayWaitForIdle(200);
+                saveManualModeConfig();
+            }
             return DISPLAY_ACK_OK;
         }
         case DISPLAY_CMD_MODE:
@@ -337,7 +413,7 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
             queueConfig.stepCount = cmd->step_count;
             for (uint8_t i = 0; i < cmd->step_count; ++i) {
                 if (cmd->steps[i].duration_sec > 86400UL) return DISPLAY_ACK_BAD_VALUE;
-                queueConfig.steps[i].relayMask = cmd->steps[i].relay_mask & 0x0F;
+                queueConfig.steps[i].relayMask = cmd->steps[i].relay_mask & RELAY_MASK_ALL;
                 queueConfig.steps[i].duration = cmd->steps[i].duration_sec;
             }
             saveQueueConfig();
@@ -345,8 +421,8 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
         }
         case DISPLAY_CMD_QUEUE_CONTROL:
             if (item.length != 1 || item.payload[0] > DISPLAY_QUEUE_RESTART) return DISPLAY_ACK_BAD_VALUE;
-            if (item.payload[0] == DISPLAY_QUEUE_PAUSE) queuePaused = true;
-            else if (item.payload[0] == DISPLAY_QUEUE_RESUME) queuePaused = false;
+            if (item.payload[0] == DISPLAY_QUEUE_PAUSE) pauseQueue();
+            else if (item.payload[0] == DISPLAY_QUEUE_RESUME) resumeQueue();
             else if (item.payload[0] == DISPLAY_QUEUE_STOP) {
                 queueRunning = false; queuePaused = false; requestAllRelays(false, 2);
             } else if (queueConfig.stepCount) {
@@ -359,13 +435,14 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
                 (const display_automation_config_command_t *)item.payload;
             if (cmd->rule_count > MAX_AUTO_RULES ||
                 item.length != 1 + cmd->rule_count * sizeof(display_rule_t)) return DISPLAY_ACK_BAD_LENGTH;
+            const uint8_t release = automationReleaseMask();
             initializeAutomationRules();
             uint8_t destination = 0;
             for (uint8_t i = 0; i < cmd->rule_count; ++i) {
                 const display_rule_t &src = cmd->rules[i];
                 if (!src.enabled) continue;
                 if (src.node_id < 1 || src.node_id > MAX_NODES ||
-                    src.relay_id < 1 || src.relay_id > 4 ||
+                    src.relay_id < 1 || src.relay_id > RELAY_COUNT ||
                     src.temp_min_x100 > src.temp_max_x100 ||
                     src.hum_min_x100 > src.hum_max_x100) return DISPLAY_ACK_BAD_VALUE;
                 AutomationRule &dst = autoRules[destination++];
@@ -380,6 +457,7 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
                 dst.humMin = src.hum_min_x100 / 100.0f;
                 dst.humMax = src.hum_max_x100 / 100.0f;
             }
+            applyAutomationRelease(release);
             saveAutomationConfig();
             return DISPLAY_ACK_OK;
         }
@@ -438,9 +516,27 @@ static display_ack_status_t processCommand(const DisplayCommandItem &item) {
             applySensorSleep(seconds);
             return DISPLAY_ACK_OK;
         }
+        case DISPLAY_CMD_WIFI_PROV: {
+            if (item.length != 0) return DISPLAY_ACK_BAD_LENGTH;
+            display_wifi_prov_t info{};
+            const char *name = provServiceName.length()
+                ? provServiceName.c_str() : "Shunya";
+            strncpy(info.name, name, sizeof(info.name) - 1);
+            snprintf(info.payload, sizeof(info.payload),
+                     "{\"ver\":\"v1\",\"name\":\"%s\",\"pop\":\"%s\",\"transport\":\"ble\"}",
+                     info.name, PROV_POP_PIN);
+            if (!sendFrame(DISPLAY_MSG_WIFI_PROV, s_tx_sequence++, &info, sizeof(info))) {
+                return DISPLAY_ACK_INTERNAL;
+            }
+            return DISPLAY_ACK_OK;
+        }
         default:
             return DISPLAY_ACK_BAD_VALUE;
     }
+}
+
+bool displayHasPendingCommands() {
+    return displayCmdQueue && uxQueueMessagesWaiting(displayCmdQueue) > 0;
 }
 
 void displayProcessPendingCommands() {
@@ -449,7 +545,8 @@ void displayProcessPendingCommands() {
     while (displayCmdQueue && xQueueReceive(displayCmdQueue, &item, 0) == pdTRUE) {
         const bool acknowledgedCommand =
             item.type != DISPLAY_MSG_SNAPSHOT_REQUEST && item.type != DISPLAY_MSG_HELLO &&
-            item.type != DISPLAY_MSG_ECHO && item.type != DISPLAY_CMD_WIFI_RESET;
+            item.type != DISPLAY_MSG_ECHO && item.type != DISPLAY_MSG_HEARTBEAT &&
+            item.type != DISPLAY_CMD_WIFI_RESET;
         if (acknowledgedCommand && item.sequence == s_last_command_sequence &&
             item.type == s_last_command_type) {
             sendAck(item.sequence, item.type, s_last_command_status);

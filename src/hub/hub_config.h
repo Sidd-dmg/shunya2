@@ -2,8 +2,8 @@
 #define HUB_CONFIG_H
 
 #define HUB_UART_NUM        UART_NUM_1
-#define HUB_UART_TX_GPIO    5
-#define HUB_UART_RX_GPIO    4
+#define HUB_UART_TX_GPIO    16
+#define HUB_UART_RX_GPIO    17
 #define HUB_UART_BAUD       115200
 #define HUB_UART_BUF        512
 #define HUB_MAX_NODES       16

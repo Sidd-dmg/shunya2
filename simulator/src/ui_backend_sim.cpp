@@ -3,6 +3,7 @@
 #include "ui_backend.h"
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 
 namespace {
@@ -12,6 +13,8 @@ display_ack_t s_ack{};
 bool s_ack_pending;
 display_hmi_ota_status_t s_ota_status{};
 bool s_ota_status_pending;
+display_wifi_prov_t s_wifi_prov{};
+bool s_wifi_prov_pending;
 uint16_t s_sequence = 1;
 uint32_t s_commands;
 std::array<uint32_t, 256> s_command_counts{};
@@ -189,6 +192,15 @@ hmi::CommandResult submit_command(uint8_t type, const void *payload, uint16_t le
                      sizeof(s_ota_status.message) - 1);
         s_ota_status_pending = true;
         return {true, "HMI OTA simulated"};
+    case DISPLAY_CMD_WIFI_PROV:
+        std::memset(&s_wifi_prov, 0, sizeof(s_wifi_prov));
+        std::strncpy(s_wifi_prov.name, "Shunya 00:00:00:00:00:00",
+                     sizeof(s_wifi_prov.name) - 1);
+        std::snprintf(s_wifi_prov.payload, sizeof(s_wifi_prov.payload),
+                      "{\"ver\":\"v1\",\"name\":\"%s\",\"pop\":\"abcd1234\",\"transport\":\"ble\"}",
+                      s_wifi_prov.name);
+        s_wifi_prov_pending = true;
+        return {true, "Wi-Fi provisioning QR ready"};
     case DISPLAY_CMD_SENSOR_SLEEP: {
         if (length != 2) return {false, "Bad sleep command"};
         const uint16_t seconds = (uint16_t)*(const uint8_t *)payload |
@@ -243,6 +255,13 @@ extern "C" bool uiBackendTakeOtaStatus(display_hmi_ota_status_t *status) {
     if (!status || !s_ota_status_pending) return false;
     *status = s_ota_status;
     s_ota_status_pending = false;
+    return true;
+}
+
+extern "C" bool uiBackendTakeWifiProv(display_wifi_prov_t *info) {
+    if (!info || !s_wifi_prov_pending) return false;
+    *info = s_wifi_prov;
+    s_wifi_prov_pending = false;
     return true;
 }
 

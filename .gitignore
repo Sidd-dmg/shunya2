@@ -2,6 +2,7 @@
 simulator/build
 simulator/.cache
 dist/
+factory/
 managed_components/
 dependencies.lock
 hmi/*.eez-project-ui-state
@@ -19,3 +20,4 @@ sdkconfig.display_*
 sdkconfig.4d_systems_*
 __pycache__/
 *.pyc
+tests/results/

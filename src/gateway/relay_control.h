@@ -8,5 +8,7 @@ void relayInitPins(void);
 void requestRelay(uint8_t relayId, bool state, uint8_t triggerSource);
 void requestAllRelays(bool state, uint8_t triggerSource);
 void applyRelayLocked(uint8_t relayId, bool state, uint8_t triggerSource);
+void relayCommandApplied(void);
+bool relayWaitForIdle(uint32_t timeoutMs);
 
 #endif

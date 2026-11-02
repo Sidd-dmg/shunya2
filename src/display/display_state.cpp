@@ -7,10 +7,12 @@ static SemaphoreHandle_t s_mutex;
 static display_snapshot_t s_snapshot;
 static display_ack_t s_ack;
 static display_hmi_ota_status_t s_ota_status;
+static display_wifi_prov_t s_wifi_prov;
 static bool s_has_snapshot;
 static bool s_link;
 static bool s_has_ack;
 static bool s_has_ota_status;
+static bool s_has_wifi_prov;
 static uint32_t s_last_rx;
 
 void displayStateBegin() {
@@ -55,7 +57,8 @@ bool displayStateLinkConnected() {
     if (!s_mutex || xSemaphoreTake(s_mutex, pdMS_TO_TICKS(20)) != pdTRUE) {
         return false;
     }
-    const bool connected = s_link && (millis() - s_last_rx < 8000UL);
+    const bool connected = s_link &&
+                           (millis() - s_last_rx < DISPLAY_LINK_STALE_MS);
     xSemaphoreGive(s_mutex);
     return connected;
 }
@@ -108,6 +111,29 @@ bool displayStateTakeOtaStatus(display_hmi_ota_status_t &status) {
     if (available) {
         status = s_ota_status;
         s_has_ota_status = false;
+    }
+    xSemaphoreGive(s_mutex);
+    return available;
+}
+
+void displayStateSetWifiProv(const display_wifi_prov_t &info) {
+    if (s_mutex && xSemaphoreTake(s_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+        s_wifi_prov = info;
+        s_wifi_prov.name[sizeof(s_wifi_prov.name) - 1] = '\0';
+        s_wifi_prov.payload[sizeof(s_wifi_prov.payload) - 1] = '\0';
+        s_has_wifi_prov = true;
+        xSemaphoreGive(s_mutex);
+    }
+}
+
+bool displayStateTakeWifiProv(display_wifi_prov_t &info) {
+    if (!s_mutex || xSemaphoreTake(s_mutex, pdMS_TO_TICKS(20)) != pdTRUE) {
+        return false;
+    }
+    const bool available = s_has_wifi_prov;
+    if (available) {
+        info = s_wifi_prov;
+        s_has_wifi_prov = false;
     }
     xSemaphoreGive(s_mutex);
     return available;

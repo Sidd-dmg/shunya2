@@ -43,6 +43,15 @@ void setup() {
 
     persistenceBegin();
     loadNodesFromEEPROM();
+    /* A restored node has no sample age yet. Stamp it so the age display
+     * starts at this boot while the hub resends the last reading. */
+    for (uint8_t i = 0; i < nodeCount; ++i) {
+        nodes[i].lastSeen = millis();
+        if (nodes[i].nodeId >= 1 && nodes[i].nodeId <= MAX_NODES) {
+            temps[nodes[i].nodeId - 1] = nodes[i].lastTemperature;
+            hums[nodes[i].nodeId - 1] = nodes[i].lastHumidity;
+        }
+    }
     initializeAutomationRules();
     initializeQueueConfig();
     loadConfigFromEEPROM();
@@ -52,7 +61,7 @@ void setup() {
     mqttServiceBegin();
 
     if (operationMode == MODE_AUTOMATION) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < RELAY_COUNT; i++) {
             digitalWrite(relayPins[i], LOW);
             relayStates[i] = false;
         }
@@ -91,7 +100,7 @@ void setup() {
     if (operationMode == MODE_QUEUE && queueRunning && queueConfig.stepCount > 0) {
         QueueStep &firstStep = queueConfig.steps[0];
         if (firstStep.relayMask != 0) {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < RELAY_COUNT; i++) {
                 if (firstStep.relayMask & (1 << i)) {
                     requestRelay(i, true, 2);
                 }

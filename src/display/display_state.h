@@ -14,5 +14,7 @@ void displayStateSetAck(const display_ack_t &ack);
 bool displayStateTakeAck(display_ack_t &ack);
 void displayStateSetOtaStatus(const display_hmi_ota_status_t &status);
 bool displayStateTakeOtaStatus(display_hmi_ota_status_t &status);
+void displayStateSetWifiProv(const display_wifi_prov_t &info);
+bool displayStateTakeWifiProv(display_wifi_prov_t &info);
 
 #endif

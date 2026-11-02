@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ha/esp_zigbee_ha_standard.h"
+#include "nwk/esp_zigbee_nwk.h"
 #include "hub_config.h"
 #include "hub_uart.h"
 #include "link_protocol.h"
@@ -220,8 +221,21 @@ static void handle_join(const uint8_t *ieee, uint16_t short_addr)
         ESP_LOGI(TAG, "joined node %u short 0x%04X", slots_table()[idx].node_id, short_addr);
     } else {
         slots_alloc(ieee, short_addr);
+        hub_uart_send_sensor(&slots_table()[idx]);
     }
     send_sleep_write(short_addr);
+}
+
+static uint8_t neighbor_lqi(uint16_t short_addr)
+{
+    esp_zb_nwk_info_iterator_t iterator = ESP_ZB_NWK_INFO_ITERATOR_INIT;
+    esp_zb_nwk_neighbor_info_t neighbor;
+    while (esp_zb_nwk_get_next_neighbor(&iterator, &neighbor) == ESP_OK) {
+        if (neighbor.short_addr == short_addr) {
+            return neighbor.lqi;
+        }
+    }
+    return 0;
 }
 
 static void handle_report(uint16_t short_addr, uint16_t cluster, uint16_t attr,
@@ -251,7 +265,12 @@ static void handle_report(uint16_t short_addr, uint16_t cluster, uint16_t attr,
         slot->battery_pct = value[0];
     }
     hub_uart_send_sensor(slot);
-    send_sleep_write(short_addr);
+    /* A sleepy sensor misses a write that arrives between reports. Deliver
+     * the current interval on the temperature report, while it is awake.
+     * An unchanged value is ignored by the sensor. */
+    if (cluster == ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT) {
+        send_sleep_write(short_addr);
+    }
 }
 
 static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
@@ -330,10 +349,9 @@ static esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t callback_id,
         return ESP_OK;
     }
     uint16_t short_addr = report->src_address.u.short_addr;
-    uint8_t lqi = 0;
     handle_report(short_addr, report->cluster, report->attribute.id,
                   (const uint8_t *)report->attribute.data.value,
-                  report->attribute.data.size, lqi);
+                  report->attribute.data.size, neighbor_lqi(short_addr));
     return ESP_OK;
 }
 

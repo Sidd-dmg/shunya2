@@ -22,7 +22,9 @@
     heap_caps_realloc(pointer, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
 #else
 #define LV_MEM_CUSTOM 0
-#define LV_MEM_SIZE (128U * 1024U)
+/* The native simulator draws a 200 px provisioning QR (about 80 KiB) on top
+ * of the rest of the UI. The display board allocates this from PSRAM. */
+#define LV_MEM_SIZE (384U * 1024U)
 #endif
 #define LV_TICK_CUSTOM 0
 #define LV_DPI_DEF 130
@@ -56,7 +58,7 @@
 #define LV_USE_BAR 1
 #define LV_USE_BTN 1
 #define LV_USE_BTNMATRIX 1
-#define LV_USE_CANVAS 0
+#define LV_USE_CANVAS 1
 #define LV_USE_CHECKBOX 0
 #define LV_USE_DROPDOWN 1
 #define LV_USE_IMG 1
@@ -80,6 +82,7 @@
 #define LV_USE_TABVIEW 1
 #define LV_USE_TILEVIEW 0
 #define LV_USE_WIN 0
+#define LV_USE_QRCODE 1
 #define LV_USE_ANIMIMG 0
 #define LV_USE_GRID 0
 

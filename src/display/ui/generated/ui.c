@@ -42,8 +42,8 @@ lv_obj_t *ui_history_values;
 lv_obj_t *ui_history_hint;
 lv_obj_t *ui_history_chart;
 lv_obj_t *ui_history_close_button;
-lv_obj_t *ui_relay_buttons[4];
-lv_obj_t *ui_relay_labels[4];
+lv_obj_t *ui_relay_buttons[DISPLAY_RELAY_COUNT];
+lv_obj_t *ui_relay_labels[DISPLAY_RELAY_COUNT];
 lv_obj_t *ui_all_off_button;
 lv_obj_t *ui_pair_status;
 lv_obj_t *ui_pair_toggle_button;
@@ -72,6 +72,12 @@ lv_obj_t *ui_clear_logs_button;
 lv_obj_t *ui_test_hub_button;
 lv_obj_t *ui_test_display_button;
 lv_obj_t *ui_reset_wifi_button;
+lv_obj_t *ui_wifi_qr_button;
+lv_obj_t *ui_wifi_qr_overlay;
+lv_obj_t *ui_wifi_qr_card;
+lv_obj_t *ui_wifi_qr;
+lv_obj_t *ui_wifi_qr_name;
+lv_obj_t *ui_wifi_qr_close_button;
 lv_obj_t *ui_brightness_slider;
 lv_obj_t *ui_timeout_dropdown;
 
@@ -120,6 +126,10 @@ static lv_obj_t *make_label(lv_obj_t *parent, const char *text, const lv_font_t 
     lv_obj_set_style_text_color(label, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(label, font, 0);
     return label;
+}
+
+static void keep_popup_open(lv_event_t *event) {
+    lv_event_stop_bubbling(event);
 }
 
 static lv_obj_t *make_button(lv_obj_t *parent, const char *text,
@@ -187,8 +197,8 @@ static void create_dashboard(void) {
     lv_obj_set_style_text_color(ui_queue_status, COLOR_MUTED, 0);
 
     ui_dashboard_nodes = lv_obj_create(ui_tab_dashboard);
-    lv_obj_set_pos(ui_dashboard_nodes, 10, 70);
-    lv_obj_set_size(ui_dashboard_nodes, 760, 244);
+    lv_obj_set_pos(ui_dashboard_nodes, 10, 84);
+    lv_obj_set_size(ui_dashboard_nodes, 760, 254);
     lv_obj_set_style_bg_opa(ui_dashboard_nodes, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(ui_dashboard_nodes, 0, 0);
     lv_obj_set_style_pad_all(ui_dashboard_nodes, 0, 0);
@@ -197,7 +207,7 @@ static void create_dashboard(void) {
     for (uint8_t i = 0; i < 2; ++i) {
         lv_obj_t *panel = lv_obj_create(ui_dashboard_nodes);
         lv_obj_set_pos(panel, i ? 385 : 5, 0);
-        lv_obj_set_size(panel, 370, 238);
+        lv_obj_set_size(panel, 370, 248);
         style_panel(panel);
         lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(panel, LV_OBJ_FLAG_CLICKABLE);
@@ -233,10 +243,6 @@ static void create_dashboard(void) {
         ui_node_meta[i] = make_label(panel, "LQI --  |  waiting", &lv_font_montserrat_14);
         lv_obj_align(ui_node_meta[i], LV_ALIGN_BOTTOM_MID, 0, 1);
         lv_obj_set_style_text_color(ui_node_meta[i], COLOR_MUTED, 0);
-
-        lv_obj_t *tap_hint = make_label(panel, "TAP FOR TREND", &lv_font_montserrat_14);
-        lv_obj_align(tap_hint, LV_ALIGN_TOP_RIGHT, 0, 1);
-        lv_obj_set_style_text_color(tap_hint, COLOR_BLUE, 0);
     }
 
     ui_no_nodes = make_label(ui_dashboard_nodes,
@@ -251,9 +257,9 @@ static void create_relays(void) {
     lv_obj_set_flex_flow(ui_tab_relays, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(ui_tab_relays, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    for (uint8_t i = 0; i < 4; ++i) {
+    for (uint8_t i = 0; i < DISPLAY_RELAY_COUNT; ++i) {
         ui_relay_buttons[i] = lv_btn_create(ui_tab_relays);
-        lv_obj_set_size(ui_relay_buttons[i], 365, 108);
+        lv_obj_set_size(ui_relay_buttons[i], 176, 92);
         lv_obj_set_style_radius(ui_relay_buttons[i], 14, 0);
         lv_obj_set_style_bg_color(ui_relay_buttons[i], COLOR_PANEL_2, 0);
         lv_obj_set_style_bg_color(ui_relay_buttons[i], COLOR_ORANGE, LV_STATE_PRESSED);
@@ -261,32 +267,40 @@ static void create_relays(void) {
         lv_obj_add_event_cb(ui_relay_buttons[i], action_relay_toggle,
                             LV_EVENT_CLICKED, (void *)(uintptr_t)i);
         ui_relay_labels[i] = make_label(ui_relay_buttons[i], "RELAY\nOFF",
-                                        &lv_font_montserrat_24);
+                                        &lv_font_montserrat_20);
         lv_obj_set_style_text_align(ui_relay_labels[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_center(ui_relay_labels[i]);
     }
     ui_all_off_button = make_button(ui_tab_relays, "ALL OFF",
                                     action_all_relays_off, NULL);
+    lv_obj_set_size(ui_all_off_button, 176, 92);
 }
 
 static void create_sensors(void) {
     style_tab(ui_tab_sensors);
+    lv_obj_clear_flag(ui_tab_sensors, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(ui_tab_sensors, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(ui_tab_sensors, 6, 0);
+    lv_obj_set_style_pad_all(ui_tab_sensors, 8, 0);
+    lv_obj_set_style_pad_row(ui_tab_sensors, 4, 0);
     lv_obj_t *toolbar = lv_obj_create(ui_tab_sensors);
-    lv_obj_set_size(toolbar, lv_pct(100), 54);
+    lv_obj_set_size(toolbar, lv_pct(100), 48);
     style_panel(toolbar);
+    lv_obj_set_style_pad_ver(toolbar, 4, 0);
     lv_obj_set_flex_flow(toolbar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(toolbar, LV_FLEX_ALIGN_SPACE_BETWEEN,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     ui_pair_status = make_label(toolbar, "Pairing closed", &lv_font_montserrat_18);
     ui_pair_toggle_button = make_button(toolbar, "OPEN / CLOSE",
                                         action_pairing_toggle, NULL);
+    lv_obj_set_size(ui_pair_toggle_button, 128, 36);
     ui_forget_all_button = make_button(toolbar, "FORGET ALL",
                                        action_forget_all_nodes, NULL);
+    lv_obj_set_size(ui_forget_all_button, 128, 36);
     lv_obj_t *sleep_bar = lv_obj_create(ui_tab_sensors);
-    lv_obj_set_size(sleep_bar, lv_pct(100), 48);
+    lv_obj_set_size(sleep_bar, lv_pct(100), 56);
     style_panel(sleep_bar);
+    lv_obj_set_style_pad_ver(sleep_bar, 8, 0);
+    lv_obj_clear_flag(sleep_bar, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(sleep_bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(sleep_bar, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -294,17 +308,27 @@ static void create_sensors(void) {
     lv_obj_set_width(ui_sleep_label, 140);
     ui_sleep_slider = lv_slider_create(sleep_bar);
     lv_obj_set_flex_grow(ui_sleep_slider, 1);
-    lv_obj_set_height(ui_sleep_slider, 12);
+    lv_obj_set_height(ui_sleep_slider, 16);
     lv_slider_set_range(ui_sleep_slider, 5, 600);
     lv_slider_set_value(ui_sleep_slider, 20, LV_ANIM_OFF);
+    lv_obj_set_style_radius(ui_sleep_slider, 8, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_sleep_slider, 8, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(ui_sleep_slider, COLOR_ORANGE, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(ui_sleep_slider, COLOR_ORANGE, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(ui_sleep_slider, 8, LV_PART_KNOB);
+    /* The row used to steal horizontal drags, and the 12 px track was too
+     * thin to hold a finger. The extra click area covers the whole bar. */
+    lv_obj_set_ext_click_area(ui_sleep_slider, 18);
+    lv_obj_clear_flag(ui_sleep_slider, LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+    lv_obj_clear_flag(ui_sleep_slider, LV_OBJ_FLAG_SCROLL_CHAIN_VER);
     lv_obj_add_event_cb(ui_sleep_slider, action_sleep_changed, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(ui_sleep_slider, action_sleep_changed, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_event_cb(ui_sleep_slider, action_sleep_changed, LV_EVENT_PRESS_LOST, NULL);
     for (uint8_t i = 0; i < 4; ++i) {
         ui_node_rows[i] = lv_obj_create(ui_tab_sensors);
-        lv_obj_set_size(ui_node_rows[i], lv_pct(100), 48);
+        lv_obj_set_size(ui_node_rows[i], lv_pct(100), 42);
         style_panel(ui_node_rows[i]);
+        lv_obj_set_style_pad_ver(ui_node_rows[i], 4, 0);
         lv_obj_set_flex_flow(ui_node_rows[i], LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(ui_node_rows[i], LV_FLEX_ALIGN_START,
                               LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -314,10 +338,10 @@ static void create_sensors(void) {
         ui_forget_node_buttons[i] = make_button(ui_node_rows[i], "FORGET",
                                                 action_forget_node,
                                                 (void *)(uintptr_t)i);
-        lv_obj_set_size(ui_forget_node_buttons[i], 104, 34);
+        lv_obj_set_size(ui_forget_node_buttons[i], 104, 30);
     }
     lv_obj_t *pager = lv_obj_create(ui_tab_sensors);
-    lv_obj_set_size(pager, lv_pct(100), 42);
+    lv_obj_set_size(pager, lv_pct(100), 38);
     style_panel(pager);
     lv_obj_set_style_pad_ver(pager, 3, 0);
     lv_obj_set_flex_flow(pager, LV_FLEX_FLOW_ROW);
@@ -325,12 +349,12 @@ static void create_sensors(void) {
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     ui_sensor_previous_button = make_button(pager, "PREVIOUS",
                                             action_sensor_previous, NULL);
-    lv_obj_set_size(ui_sensor_previous_button, 124, 32);
+    lv_obj_set_size(ui_sensor_previous_button, 124, 28);
     ui_sensor_page_label = make_label(pager, "PAGE 1 / 1",
                                       &lv_font_montserrat_16);
     ui_sensor_next_button = make_button(pager, "NEXT",
                                         action_sensor_next, NULL);
-    lv_obj_set_size(ui_sensor_next_button, 124, 32);
+    lv_obj_set_size(ui_sensor_next_button, 124, 28);
 }
 
 static void style_table(lv_obj_t *table) {
@@ -401,9 +425,9 @@ static void create_programs(void) {
     lv_obj_set_size(ui_queue_table, lv_pct(100), lv_pct(100));
     lv_table_set_col_cnt(ui_queue_table, 4);
     lv_table_set_col_width(ui_queue_table, 0, 62);
-    lv_table_set_col_width(ui_queue_table, 1, 185);
-    lv_table_set_col_width(ui_queue_table, 2, 130);
-    lv_table_set_col_width(ui_queue_table, 3, 330);
+    lv_table_set_col_width(ui_queue_table, 1, 320);
+    lv_table_set_col_width(ui_queue_table, 2, 110);
+    lv_table_set_col_width(ui_queue_table, 3, 215);
     style_table(ui_queue_table);
     lv_obj_add_event_cb(ui_queue_table, table_draw, LV_EVENT_DRAW_PART_BEGIN, NULL);
 
@@ -439,6 +463,7 @@ static void create_system(void) {
                                          action_test_display, NULL);
     ui_reset_wifi_button = make_button(buttons, "RESET WI-FI",
                                         action_reset_wifi, NULL);
+    ui_wifi_qr_button = make_button(buttons, "WI-FI QR", action_wifi_qr, NULL);
     make_label(buttons, "BRIGHTNESS", &lv_font_montserrat_14);
     /* The knob overhangs the ends of the track, so the slider sits in a
      * transparent holder that reserves that overhang. Without it the knob
@@ -485,11 +510,11 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
 
     ui_header = lv_obj_create(ui_screen);
     lv_obj_set_pos(ui_header, 0, 0);
-    lv_obj_set_size(ui_header, 800, 52);
+    lv_obj_set_size(ui_header, 800, 68);
     lv_obj_set_style_bg_color(ui_header, COLOR_PANEL, 0);
     lv_obj_set_style_border_width(ui_header, 0, 0);
     lv_obj_set_style_pad_hor(ui_header, 12, 0);
-    lv_obj_set_style_pad_ver(ui_header, 8, 0);
+    lv_obj_set_style_pad_ver(ui_header, 4, 0);
     lv_obj_set_flex_flow(ui_header, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(ui_header, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -519,8 +544,8 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
     lv_obj_align(ui_header_logo, LV_ALIGN_CENTER, 0, 0);
 
     ui_main_tabs = lv_tabview_create(ui_screen, LV_DIR_BOTTOM, 54);
-    lv_obj_set_pos(ui_main_tabs, 0, 52);
-    lv_obj_set_size(ui_main_tabs, 800, 428);
+    lv_obj_set_pos(ui_main_tabs, 0, 68);
+    lv_obj_set_size(ui_main_tabs, 800, 412);
     lv_obj_set_style_bg_color(ui_main_tabs, COLOR_BG, 0);
     lv_obj_set_style_anim_time(ui_main_tabs, 80, 0);
     style_tab_buttons(ui_main_tabs);
@@ -537,7 +562,7 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
 
     ui_toast = make_label(ui_screen, "", &lv_font_montserrat_16);
     lv_obj_set_size(ui_toast, 480, 44);
-    lv_obj_align(ui_toast, LV_ALIGN_TOP_MID, 0, 58);
+    lv_obj_align(ui_toast, LV_ALIGN_TOP_MID, 0, 74);
     lv_obj_set_style_bg_color(ui_toast, COLOR_ORANGE, 0);
     lv_obj_set_style_bg_opa(ui_toast, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(ui_toast, 12, 0);
@@ -603,6 +628,47 @@ lv_obj_t *shunya_ui_create(lv_obj_t *parent) {
     lv_obj_set_style_line_width(ui_history_chart, 1, LV_PART_MAIN);
     lv_obj_set_style_size(ui_history_chart, 0, LV_PART_INDICATOR);
     lv_obj_add_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN);
+
+    ui_wifi_qr_overlay = lv_obj_create(ui_screen);
+    lv_obj_set_size(ui_wifi_qr_overlay, 800, 480);
+    lv_obj_set_style_bg_color(ui_wifi_qr_overlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(ui_wifi_qr_overlay, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(ui_wifi_qr_overlay, 0, 0);
+    lv_obj_set_style_pad_all(ui_wifi_qr_overlay, 0, 0);
+    lv_obj_clear_flag(ui_wifi_qr_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(ui_wifi_qr_overlay, action_close_wifi_qr,
+                        LV_EVENT_CLICKED, NULL);
+
+    ui_wifi_qr_card = lv_obj_create(ui_wifi_qr_overlay);
+    lv_obj_set_size(ui_wifi_qr_card, 420, 430);
+    lv_obj_center(ui_wifi_qr_card);
+    style_panel(ui_wifi_qr_card);
+    lv_obj_set_style_border_width(ui_wifi_qr_card, 2, 0);
+    lv_obj_set_style_border_color(ui_wifi_qr_card, lv_color_hex(0x2A4A64), 0);
+    lv_obj_clear_flag(ui_wifi_qr_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(ui_wifi_qr_card, keep_popup_open, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *qr_title = make_label(ui_wifi_qr_card, "WI-FI PROVISIONING",
+                                    &lv_font_montserrat_20);
+    lv_obj_align(qr_title, LV_ALIGN_TOP_LEFT, 4, 0);
+    ui_wifi_qr_close_button = make_button(ui_wifi_qr_card, LV_SYMBOL_CLOSE,
+                                          action_close_wifi_qr, NULL);
+    lv_obj_set_size(ui_wifi_qr_close_button, 42, 38);
+    lv_obj_align(ui_wifi_qr_close_button, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+    ui_wifi_qr = lv_qrcode_create(ui_wifi_qr_card, 200, lv_color_hex(0x07131F),
+                                  lv_color_white());
+    lv_obj_align(ui_wifi_qr, LV_ALIGN_CENTER, 0, 6);
+    ui_wifi_qr_name = make_label(ui_wifi_qr_card, "", &lv_font_montserrat_16);
+    lv_obj_set_width(ui_wifi_qr_name, 380);
+    lv_obj_set_style_text_align(ui_wifi_qr_name, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(ui_wifi_qr_name, LV_LABEL_LONG_DOT);
+    lv_obj_align(ui_wifi_qr_name, LV_ALIGN_BOTTOM_MID, 0, -28);
+    lv_obj_t *qr_hint = make_label(ui_wifi_qr_card, "Scan with ESP BLE Provisioning",
+                                   &lv_font_montserrat_14);
+    lv_obj_set_style_text_color(qr_hint, COLOR_MUTED, 0);
+    lv_obj_align(qr_hint, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_add_flag(ui_wifi_qr_overlay, LV_OBJ_FLAG_HIDDEN);
 
     if (!parent) lv_scr_load(ui_screen);
     return ui_screen;

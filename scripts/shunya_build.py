@@ -460,6 +460,8 @@ def cmd_simulator(action: str) -> int:
         return subprocess.call([str(exe)])
     if action == "test":
         return subprocess.call([str(exe), "--self-test"])
+    if action == "monkey":
+        return subprocess.call([str(exe), "--monkey-test", "1000"])
     if action == "capture":
         hmi = REPO_ROOT / "hmi"
         code = subprocess.call([str(exe), "--capture-all", str(hmi)])
@@ -495,7 +497,10 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument("--output", default="")
 
     sim = sub.add_parser("simulator", help="Native LVGL HMI simulator")
-    sim.add_argument("action", choices=["setup", "build", "run", "test", "capture", "clean"])
+    sim.add_argument(
+        "action",
+        choices=["setup", "build", "run", "test", "monkey", "capture", "clean"],
+    )
     return parser
 
 

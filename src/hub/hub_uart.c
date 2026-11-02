@@ -77,9 +77,12 @@ static void send_node_list(void) {
         if (!t[i].used) {
             continue;
         }
-        uint8_t p[12];
+        uint8_t p[21];
         pack_node_event(&t[i], p);
-        hub_uart_send(HUB_EVT_NODE_INFO, p, 12);
+        memcpy(&p[12], &t[i].last_temp, 4);
+        memcpy(&p[16], &t[i].last_hum, 4);
+        p[20] = t[i].battery_pct;
+        hub_uart_send(HUB_EVT_NODE_INFO, p, 21);
     }
 }
 

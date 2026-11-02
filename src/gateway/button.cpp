@@ -7,6 +7,7 @@
 #include "persistence.h"
 #include "relay_control.h"
 #include "rtos.h"
+#include "mqtt_service.h"
 #include <WiFi.h>
 #include <Arduino.h>
 #include <cstring>
@@ -18,6 +19,7 @@ void enablePairingMode(void) {
     control_states[5] = 1;
     hubRequestPairOpen((uint16_t)(PAIRING_MODE_DURATION_MS / 1000UL));
     displaySendSnapshot();
+    publishStatus();
     Serial.println("Pairing mode enabled (Zigbee permit-join requested)");
 }
 
@@ -27,6 +29,7 @@ void disablePairingMode(void) {
     control_states[5] = 0;
     hubRequestPairClose();
     displaySendSnapshot();
+    publishStatus();
     Serial.println("Pairing mode disabled");
 }
 

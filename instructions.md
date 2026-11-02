@@ -14,8 +14,8 @@ Four pieces of hardware work together:
 | Piece | Board | Firmware env | Job |
 |---|---|---|---|
 | Gateway | 4D Systems ESP32-S3 (16 MB) | `gateway_s3` | Relays, Wi-Fi, MQTT, modes, HMI/hub UART |
-| Zigbee hub | ESP32-C6 DevKitC-1 | `zigbee_hub_c6` | Zigbee coordinator + UART to gateway |
-| Production sensor | ESP32-C6 + DHT22 | `zigbee_sensor_c6` | Sleepy Zigbee end device + temperature/humidity/battery |
+| Zigbee hub | ESP32-C6 DevKitC-1, 4 MB flash | `zigbee_hub_c6` | Zigbee coordinator + UART to gateway |
+| Production sensor | ESP32-C6-MINI-1 + SHT40 | `zigbee_sensor_c6` | Sleepy Zigbee end device + temperature/humidity/battery |
 | Local display | Waveshare ESP32-S3-Touch-LCD-7 | `display_s3` | 800×480 touch HMI |
 
 Optional lab sensor: **ESP32-H2-DevKitM-1 (4 MB)** with `zigbee_sensor_h2_demo`.
@@ -57,7 +57,7 @@ and the HMI.
 
 ### Gateway (S3)
 
-- Relays: GPIO **8, 18, 16, 15** (HIGH = on)
+- Relays: GPIO **15, 16, 9, 14, 21, 47, 48** (relay 1–7, HIGH = on)
 - Boot / hold actions: GPIO **0**
 - USB console: 115200
 - HMI UART2: **RX 44 / TX 43**
@@ -87,20 +87,21 @@ GPIO 44 RX  <------------------  GPIO 43 TX
 GND         -------------------  GND
 ```
 
-### DHT sensor (ESP32-C6)
+### SHT40 sensor (ESP32-C6-MINI-1)
 
-Default in `src/sensor/sensor_config.h`: DHT22 on GPIO 6.
+Target board: `esp32-c6-devkitm-1` (4 MB flash, USB Serial/JTAG). Default in `src/sensor/sensor_config.h`: SHT40 SDA GPIO 22, SCL GPIO 23. Leave GPIO 8 for the RGB LED and GPIO 12/13 for USB.
 
 ```
-DHT22 (or DHT11)
+SHT40
   VCC  →  3.3 V
   GND  →  GND
-  DATA →  GPIO 6   (add 4.7 kΩ to 3.3 V if checksums fail)
+  SDA  →  GPIO 22
+  SCL  →  GPIO 23
 BOOT   →  GPIO 9   hold 3 s = factory-reset Zigbee state
 BAT    →  GPIO 2   optional ADC divider for battery % (2× scale, 3.0–4.2 V)
 ```
 
-For DHT11, set `#define DHT_MODEL 11` and rebuild `zigbee_sensor_c6`.
+Add 4.7 kΩ pull-ups from SDA and SCL to 3.3 V if reads fail. The firmware also enables the ESP32 internal pull-ups.
 
 ---
 
@@ -194,7 +195,7 @@ I (...) zb_coord: Formed network PAN 0x.... ch ...
 
 The coordinator is up immediately. Permit-join stays **closed** until pairing.
 
-### 6.3 DHT sensor (ESP32-C6)
+### 6.3 SHT40 sensor (ESP32-C6-MINI-1)
 
 ```bash
 python3 scripts/shunya_build.py idf sensor build
@@ -202,7 +203,7 @@ python3 scripts/shunya_build.py idf sensor upload --port COM9
 python3 scripts/shunya_build.py idf sensor monitor --port COM9
 ```
 
-Expect `DHT22 Zigbee sensor on GPIO 6`. Open hub pairing so it can join as a
+Expect `SHT40 Zigbee sensor on ESP32-C6-MINI-1 SDA 22 SCL 23`. Clean the sensor build once after switching from the DevKitC-1 8 MB target. Open hub pairing so it can join as a
 sleepy end device. Default report interval is **20 s** (configurable).
 
 ### 6.4 H2 serial demo (optional)
@@ -330,6 +331,7 @@ old Thread partition table.
    - App: Espressif **ESP BLE Provisioning**
    - Name: `Shunya ` + MAC **with** colons
    - Proof of possession: `abcd1234`
+   - Or on the HMI: System tab → **WI-FI QR**, then scan that popup with the same app. Close dismisses it.
 4. After DHCP, MQTT connects to the compiled broker (plaintext **1883**).
 5. Hub UART should pass `test hub`. The HMI should leave “link lost”.
 6. NTP uses `pool.ntp.org` with IST offset **+19800**. Time stays `N/A`
@@ -550,7 +552,7 @@ MQTT:
 {"all": 1}
 ```
 
-States are saved. Individual HMI buttons are rejected in other modes.
+Keys are `relay1` through `relay7` (GPIO 15, 16, 9, 14, 21, 47, 48). States are saved. Individual HMI buttons are rejected in other modes.
 
 ### Automation — fan on node 1 above 28 °C
 
@@ -714,7 +716,7 @@ A broken OTA client cannot fix itself over the air. USB-flash with
 | Pairing countdown runs, sensor never joins | Watch the **hub** log for `pair open request`. No such line → UART is down (`test hub`). Sensor must be in range during the 120 s window. |
 | Sensor joined Zigbee but no HMI row | Open pairing and wait for `joined node`. Confirm hub UART. |
 | 17th sensor never appears | Capacity is 16. Forget an unused node first. |
-| DHT paired, T/H always 0 | GPIO 6, `DHT_MODEL`, 4.7 kΩ pull-up, wait one sleep interval. |
+| SHT40 paired, T/H always 0 | SDA GPIO 22, SCL GPIO 23, 4.7 kΩ pull-ups, wait one sleep interval. |
 | Battery always `--` | Wire GPIO 2 through a 2:1 divider, or send a third number on the H2 demo (`set 24.5 55 87`). |
 | Sleep slider does nothing | Release the knob (send on release). MQTT `{"sensor_sleep": 60}` also works. |
 | H2 demo ignores typing | Monitor that board at 115200, `set 24.5 55 87`, then pair. |

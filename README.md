@@ -1,10 +1,10 @@
 # Shunya ESP-B Gateway
 
-Firmware **4.0.1** for a dual-MCU climate / irrigation controller.
+Firmware **4.2.1** for a dual-MCU climate / irrigation controller. The HMI firmware is **1.3.0**.
 
-The **gateway ESP32-S3** (4D Systems gen4, 16 MB flash) is the product brain: four relays, MQTT, Wi-Fi provisioning, OTA, and four operating modes. An on-device **ESP32-C6** is the Zigbee coordinator. A separate **Waveshare ESP32-S3-Touch-LCD-7** is the 800×480 local HMI and communicates with the gateway over a reliable versioned UART protocol.
+The **gateway ESP32-S3** (4D Systems gen4, 16 MB flash) is the product brain: seven relays, MQTT, Wi-Fi provisioning, OTA, and four operating modes. An on-device **ESP32-C6** is the Zigbee coordinator. A separate **Waveshare ESP32-S3-Touch-LCD-7** is the 800×480 local HMI and communicates with the gateway over a reliable versioned UART protocol.
 
-A second **ESP32-C6** runs the sleepy Zigbee sensor firmware in this repo.
+A separate **ESP32-C6-MINI-1** runs the sleepy Zigbee sensor firmware in this repo.
 Sensors report temperature, humidity, and battery percentage, and they use a
 user-configurable sleep/report interval (default 20 s, 5–3600 s).
 
@@ -17,10 +17,10 @@ user-configurable sleep/report interval (default 20 s, 5–3600 s).
 3. [How it works](#how-it-works)
 4. [Repository layout](#repository-layout)
 5. [Installation](#installation)
-6. [Build and flash](#build-and-flash)
+6. [Build and flash](#build-and-flash), including the [factory folder](#factory-folder)
 7. [First boot](#first-boot)
 8. [Pairing Zigbee sensors](#pairing-zigbee-sensors)
-9. [DHT sensor node](#dht-sensor-node)
+9. [SHT40 sensor node](#sht40-sensor-node)
 10. [MQTT usage](#mqtt-usage)
 11. [Operation modes](#operation-modes)
 12. [Waveshare touchscreen HMI](#waveshare-touchscreen-hmi)
@@ -39,13 +39,14 @@ user-configurable sleep/report interval (default 20 s, 5–3600 s).
 | Function | Who |
 |---|---|
 | Wi-Fi STA, BLE provisioning, MQTT, NTP (IST) | S3 |
-| Four relays (GPIO 8, 18, 16, 15) | S3 |
+| Seven relays (GPIO 15, 16, 9, 14, 21, 47, 48) | S3 |
 | Manual / automation / queue / hybrid control | S3 |
 | HMI state snapshots and validated touch commands | S3 UART2 |
 | HTTP OTA with dual-bank rollback | S3 |
 | Zigbee coordinator, node slots 1–16 | C6 hub |
 | Temp / humidity / battery reports → UART | C6 hub |
-| DHT11/22 read + sleepy Zigbee end device | C6/H2 sensor |
+| SHT40 read + sleepy Zigbee end device | C6-MINI-1 sensor |
+| Serial-fed temp / humidity / battery demo | H2 sensor |
 
 Up to **16** Zigbee sensors. Logical IDs `1–16` are used consistently by MQTT,
 automation rules, persistence, and the paginated HMI.
@@ -57,19 +58,19 @@ automation rules, persistence, and the paginated HMI.
 ### Gateway (S3)
 
 - Board env: `4d_systems_esp32s3_gen4_r8n16`
-- Relays: GPIO **8, 18, 16, 15** (outputs, HIGH = on)
+- Relays: GPIO **15, 16, 9, 14, 21, 47, 48** (relay 1 through 7, HIGH = on)
 - Boot / reset-hold: GPIO **0**
 - Debug USB serial: 115200
 - Waveshare HMI link: UART2 **RX 44 / TX 43**, 115200 8N1
-- Hub link: UART1 **RX 4 / TX 5**, 115200 8N1
+- Hub link: UART1 **RX 17 / TX 18**, 115200 8N1
 
 These are the compiled pins in [`src/gateway/config.h`](src/gateway/config.h). If board revisions require different pins, change both ends of that UART and preserve crossed TX/RX wiring.
 
 ### Zigbee hub (ESP32-C6)
 
-- Default PlatformIO board: `esp32-c6-devkitc-1`
-- UART1 **TX GPIO 5 / RX GPIO 4**, 115200 8N1
-- Debug console on UART0 / USB-Serial-JTAG
+- Default PlatformIO board: `esp32-c6-devkitc-1`, with flash size overridden to **4 MB**
+- UART1 **TX GPIO 4 / RX GPIO 5**, 115200 8N1
+- Debug console on USB-Serial/JTAG
 
 ### Wiring S3 ↔ C6 hub
 
@@ -77,26 +78,39 @@ Cross TX and RX. Common GND. 3.3 V as designed on the PCB.
 
 ```
 ESP32-S3 gateway                 ESP32-C6 hub
-GPIO 5 TX   ------------------>  GPIO 4 RX
-GPIO 4 RX   <------------------  GPIO 5 TX
-GND           ------------------  GND
+GPIO 18 TX  ------------------>  GPIO 5 RX
+GPIO 17 RX  <------------------  GPIO 4 TX
+GND         ------------------  GND
 ```
 
 Optional later: an S3 GPIO to C6 **EN** so factory reset can hard-reset the hub. That line is not implemented yet.
 
-### DHT sensor (ESP32-C6)
+### SHT40 sensor (ESP32-C6-MINI-1)
 
-Separate board from the hub. Default wiring in [`src/sensor/sensor_config.h`](src/sensor/sensor_config.h):
+Separate module from the hub. The firmware target is `esp32-c6-devkitm-1`,
+the Espressif board built on the **ESP32-C6-MINI-1** (4 MB flash, USB
+Serial/JTAG on the USB-C port). Default wiring in
+[`src/sensor/sensor_config.h`](src/sensor/sensor_config.h):
 
 ```
-DHT22 (default) or DHT11
+SHT40
   VCC  →  3.3 V
   GND  →  GND
-  DATA →  GPIO 6   (internal pull-up enabled; add 4.7 kΩ to 3.3 V if reads fail)
-BOOT   →  GPIO 9   (DevKitC-1 BOOT): hold 3 s to reset Zigbee state and restart
+  SDA  →  GPIO 22
+  SCL  →  GPIO 23
+BOOT   →  GPIO 9   (DevKitM-1 BOOT): hold 3 s to reset Zigbee state and restart
+BAT    →  GPIO 2   optional battery divider
 ```
 
-For DHT11, set `#define DHT_MODEL 11` and rebuild `zigbee_sensor_c6`.
+Leave GPIO 8 for the DevKitM RGB LED and GPIO 12/13 for USB. Use external
+4.7 kΩ pull-ups on SDA and SCL if the internal pull-ups are not enough.
+After a board or flash-size change, clean the sensor build once so a stale
+sdkconfig is dropped:
+
+```bash
+python3 scripts/shunya_build.py idf sensor clean
+python3 scripts/shunya_build.py idf sensor build
+```
 
 ### Waveshare ESP32-S3-Touch-LCD-7
 
@@ -122,10 +136,10 @@ Do not connect either side's 5 V output to the other. Power both boards from the
 
 ```mermaid
 flowchart LR
-  sensors[C6_H2_FTD_sensors] <-->|OpenThread_mesh_UDP| hub[ESP32_C6_collector]
+  sensors[C6_SHT40_or_H2_demo] <-->|Zigbee| hub[ESP32_C6_coordinator]
   hub -->|UART1_115200| s3[ESP32_S3]
   hmi[Waveshare_7in_HMI] <-->|UART2_CRC_ACK| s3
-  s3 -->|GPIO| relays[Relays_1_to_4]
+  s3 -->|GPIO| relays[Relays_1_to_7]
   s3 -->|MQTT| broker[Broker]
   phone[Phone_BLE_Prov] -->|first_WiFi| s3
 ```
@@ -158,8 +172,10 @@ permit-join window.
    1–16, persisted in NVS, and reported as `HUB_EVT_JOINED`.
 3. Sensors report temperature, humidity, and battery over ZCL. The hub
    forwards `HUB_EVT_SENSOR` (23-byte payload including battery and sleep).
-4. `HUB_CMD_SET_SLEEP` writes the global report interval (5–3600 s) to each
-   node while it is awake after a report.
+4. `HUB_CMD_SET_SLEEP` stores the global report interval (5–3600 s). A sleepy
+   end device misses a write that arrives while it is asleep, so the hub
+   repeats the write on the next temperature report, while that device is awake.
+   Link quality for the same report is copied from the Zigbee neighbor table.
 
 ### Identity
 
@@ -176,16 +192,18 @@ platformio.ini
 partitions_16mb_3mb_ota_spiffs.csv
 sdkconfig.defaults              # shared FreeRTOS tick
 sdkconfig.defaults.hub_c6       # C6 Zigbee coordinator
-sdkconfig.defaults.sensor_c6    # C6 DHT sleepy ZED
-sdkconfig.defaults.sensor_h2_demo # H2 serial-input sleepy ZED
+sdkconfig.defaults.sensor_c6    # C6 SHT40 sleepy ZED
+sdkconfig.defaults.sensor_h2_demo # H2 USB-serial sleepy ZED
 partitions_zigbee.csv           # shared 4 MB-safe Zigbee/NVS table
 src/idf_component.yml           # ESP-IDF >=5.1; Zigbee libs for C6/H2
 src/common/                     # Shared UART codec + Zigbee cluster IDs (C)
 src/gateway/                    # S3 Arduino application
 src/display/                    # Waveshare HMI firmware, board port and LVGL UI
 src/hub/                        # C6 ESP-IDF Zigbee coordinator
-src/sensor/                     # C6 DHT and H2 serial-demo Zigbee ZEDs
+src/sensor/                     # C6 SHT40 and H2 serial-demo Zigbee ZEDs
 scripts/shunya_build.py         # OS-independent IDF / HMI / release / simulator helper
+scripts/build_factory.py        # build every image into factory/
+scripts/factory_flash.py        # copied to factory/flash.py; flashes one board at a time
 scripts/idf-build.sh|.ps1       # Zigbee hub/sensor/demo wrapper
 scripts/display-build.sh|.ps1   # isolated Arduino 3.x HMI wrapper
 scripts/build-release-binaries.sh|.ps1
@@ -239,7 +257,7 @@ so no external Zigbee/ZBOSS managed components are installed.
 
 These envs run on the pioarduino platform (ESP-IDF 5.5.5) in a separate package
 store, driven by `scripts/shunya_build.py` — see [Build and flash](#build-and-flash).
-Override `board` in `platformio.ini` if you are not using `esp32-c6-devkitc-1`.
+The hub board is `esp32-c6-devkitc-1` with a **4 MB** flash. The board JSON still says 8 MB, so `platformio.ini` and `sdkconfig.defaults.hub_c6` force 4 MB. The sensor board is `esp32-c6-devkitm-1` (ESP32-C6-MINI-1, also 4 MB). Override `board` in `platformio.ini` only for a different module. A full hub reflash is required after this size change so the bootloader header matches the chip.
 
 The first run through the script creates `C:\pio-idf` (Windows) or
 `~/.pio-idf` (macOS/Linux) and populates it. It
@@ -254,7 +272,7 @@ Any MQTT 3.1.1 client (MQTT Explorer, mosquitto, Home Assistant). Broker host, p
 
 ### Phone app for Wi-Fi
 
-Espressif **ESP BLE Provisioning** (or equivalent). Proof-of-possession is `abcd1234`. BLE name is `Shunya ` plus the S3 MAC (colons included in the name string).
+Espressif **ESP BLE Provisioning** (or equivalent). Proof-of-possession is `abcd1234`. BLE name is `Shunya ` plus the S3 MAC (colons included in the name string). On the HMI, System → **WI-FI QR** shows that same payload as a scannable code.
 
 ---
 
@@ -267,7 +285,7 @@ compiling, and concurrent runs corrupt each other's toolchains mid-extraction.
 
 ### Three package stores, deliberately kept apart
 
-The gateway, Thread nodes, and HMI use incompatible framework/package versions. Each stack therefore has its own command, package store and build directory:
+The gateway, Zigbee nodes, and HMI use incompatible framework/package versions. Each stack therefore has its own command, package store and build directory:
 
 | Target | Platform | PlatformIO Core | Package store | Build directory | Command |
 |---|---|---|---|---|---|
@@ -357,7 +375,7 @@ python3 scripts/shunya_build.py idf hub upload
 python3 scripts/shunya_build.py idf hub monitor
 ```
 
-### DHT sensor (C6)
+### SHT40 sensor (ESP32-C6-MINI-1)
 
 ```bash
 python3 scripts/shunya_build.py idf sensor build
@@ -365,10 +383,13 @@ python3 scripts/shunya_build.py idf sensor upload
 python3 scripts/shunya_build.py idf sensor monitor
 ```
 
-### Demo sensor (ESP32-H2, no DHT)
+Flash and monitor through the DevKitM-1 USB-C port. The image is built for 4 MB flash.
+
+### Demo sensor (ESP32-H2, no SHT40)
 
 Use an **ESP32-H2-DevKitM-1 with 4 MB flash** for this target. Do not flash
-the demo image onto the C6 hub or C6 DHT sensor.
+the demo image onto the C6 hub or the C6 SHT40 sensor. The USB-C port is the
+chip USB Serial/JTAG console, so typed lines are read from that port.
 
 ```bash
 python3 scripts/shunya_build.py idf demo build
@@ -376,20 +397,22 @@ python3 scripts/shunya_build.py idf demo upload --port /dev/ttyACM0
 python3 scripts/shunya_build.py idf demo monitor --port /dev/ttyACM0
 ```
 
-The H2 demo uses `SENSOR_DEMO_SERIAL=1`; it has no DHT and generates no random
-readings. Keep its serial monitor open at 115200 and enter either accepted
-line format followed by Enter:
+The H2 demo uses `SENSOR_DEMO_SERIAL=1`. It has no SHT40 and does not invent
+readings. Keep its serial monitor open at 115200 and enter a line followed by
+Enter:
 
 ```text
 set 24.50 55.25
+set 24.50 55.25 80
 24.50 55.25
 ```
 
-The first number is temperature in °C (`-40..80`); the second is relative
-humidity in percent (`0..100`). Invalid, incomplete, non-numeric, NaN and
-out-of-range lines are rejected without changing the last accepted sample.
-Accepted values are converted to hundredths, sent immediately after Zigbee
-join, then repeated on the configured sleep interval.
+The first number is temperature in °C (`-40..80`). The second is relative
+humidity in percent (`0..100`). The optional third number is battery percent
+(`0..100`); omit it to leave battery unknown. Invalid lines are rejected and
+logged. An accepted sample is reported on the next wake. The device stays
+awake about 800 ms after a report, then sleeps for the configured interval,
+so a line typed while it is asleep is applied on the following report.
 
 All three Zigbee envs share [`partitions_zigbee.csv`](partitions_zigbee.csv),
 set from the `[pioarduino]` section. Zigbee persistent settings and the
@@ -432,7 +455,7 @@ Raw build outputs (forward slashes work on every host):
 - HMI application: `.pio/build-display/display_s3/firmware.bin`
 - HMI full image: `.pio/build-display/display_s3/firmware.factory.bin`
 - Zigbee hub: `.pio/build-idf/zigbee_hub_c6/firmware.bin`
-- C6 DHT sensor: `.pio/build-idf/zigbee_sensor_c6/firmware.bin`
+- C6 SHT40 sensor: `.pio/build-idf/zigbee_sensor_c6/firmware.bin`
 - H2 serial demo: `.pio/build-idf/zigbee_sensor_h2_demo/firmware.bin`
 
 ESP-IDF targets also generate `firmware.factory.bin` in their environment
@@ -588,16 +611,15 @@ the board over the USB-Serial/JTAG control lines and prints the boot banner:
 python3 scripts/shunya_build.py idf hub bootlog --port COM15
 ```
 
-A healthy collector ends with lines like these:
+A healthy hub ends with a line like this:
 
 ```
-I (...) hub_main: ESP32-C6 Thread collector started, UART GPIO RX4 TX5
-I (...) thread_hub: collector listening at [fd71:6e79:6120:1::1]:19788
+I (...) hub_main: ESP32-C6 Zigbee hub started, UART GPIO RX5 TX4
 ```
 
-The Thread mesh itself is always available to firmware carrying the compiled
-dataset. Application admission stays closed until pairing is triggered. Only
-one program can hold a port, so close any running monitor first.
+The coordinator forms or restores its Zigbee network and stays closed to
+joining until pairing is opened. Only one program can hold a port, so close
+any running monitor first.
 
 ```powershell
 pio device list
@@ -609,17 +631,34 @@ Every environment pins its platform explicitly in `platformio.ini`, because
 both platforms claim the name `espressif32` and a bare `platform = espressif32`
 silently resolves to whichever is newer. Do not loosen those pins.
 
-Flash **four** images for a full production stack: S3 gateway, Waveshare S3 HMI, C6 hub, and C6 DHT
-node. For a demo, replace the C6 DHT node with `zigbee_sensor_h2_demo`. A gateway
+Flash **four** images for a full production stack: S3 gateway, Waveshare S3 HMI, C6 hub, and C6 SHT40
+node. For a bench without the SHT40 board, use `zigbee_sensor_h2_demo` in place of the C6 sensor. A gateway
 with no hub on UART will boot and run MQTT/relays, but pairing and sensor data
 will not appear.
+
+### Factory folder
+
+Build every image and copy the flash files, plus a port-by-port flasher, into `factory/`:
+
+```bash
+python3 scripts/build_factory.py
+python3 factory/flash.py
+```
+
+`factory/flash.py` asks for the gateway, HMI, hub, sensor, and H2 demo ports one board at a time. Type `skip` for a board that is not being programmed. Move the HMI UART switch toward the PC before the display step, then back toward the gateway. Pass ports on the command line to skip the prompts:
+
+```bash
+python3 factory/flash.py --gateway COM20 --display COM12 --hub COM15 --sensor COM8 --demo skip --yes
+```
+
+`--skip-build` packages binaries that are already in `.pio`. `factory/` is gitignored. The script refuses to write two devices to the same port in one run.
 
 ---
 
 ## First boot
 
 1. Power S3 and C6 hub together (shared 3.3 V / 5 V as per PCB).
-2. Open the S3 serial monitor at 115200. You should see firmware `4.0.1` and the MQTT command topic.
+2. Open the S3 serial monitor at 115200. You should see firmware `4.2.1` and the MQTT command topic.
 3. If no Wi-Fi is stored, BLE provisioning starts. Provision SSID/password with PoP `abcd1234`.
 4. After STA gets an IP, MQTT connects using the MAC-based client id.
 5. C6 hub should form a Zigbee PAN. Sensors join only while pairing is open.
@@ -637,10 +676,14 @@ NTP uses `pool.ntp.org` with offset **+19800** (IST). Timestamps are `YYYY-MM-DD
 2. Pairing lasts **120 seconds**. The S3 tells the C6 hub to open Zigbee
    permit-join and sends the countdown to the HMI.
 3. Power a Shunya C6/H2 sensor. It joins only while the window is open.
-4. On success, the hub assigns slot 1–16, the S3 saves IEEE + short address
-   to EEPROM, and MQTT/HMI list the node. Reports include temperature,
-   humidity, and battery. Default interval is **20 s**.
+4. On success, the hub assigns slot 1–16, the S3 saves IEEE, short address,
+   and the last temperature, humidity, and battery to EEPROM. MQTT and the
+   HMI list the node. Reports include temperature, humidity, battery, and
+   LQI. Default interval is **20 s**.
 5. Permit-join ends on timeout, `{"pair": false}`, or the HMI close action.
+   A paired node stays paired across gateway and hub reboots. A Zigbee leave
+   announcement does not remove it. Age is shown from the last report; it is
+   not a deletion timer.
 
 **Limits**
 
@@ -657,37 +700,41 @@ NTP uses `pool.ntp.org` with offset **+19800** (IST). Timestamps are `YYYY-MM-DD
 
 After a hub reboot, the S3 requests `LIST_NODES` so EEPROM and hub NVS can reconverge.
 
-Forget operations are gateway-authoritative even if the C6 is disconnected.
-When the hub reconnects, hub-only records receive a deferred `FORGET_NODE`.
+Forget operations are explicit. A node is removed only by per-node forget,
+**FORGET ALL**, the 10-second boot-button hold, or a 20-second factory reset.
+A node that the hub still lists after a gateway reboot is restored, including
+its last reading. LQI is live and reads 0 until that device sends another frame.
 
 ---
 
-## DHT sensor node
+## SHT40 sensor node
 
-Firmware env: `zigbee_sensor_c6`. Role: sleepy Zigbee **end device**.
+Firmware env: `zigbee_sensor_c6`. Role: sleepy Zigbee **end device** on an **ESP32-C6-MINI-1**.
 
-1. Set `DHT_MODEL` to `22` (AM2302) or `11` in [`src/sensor/sensor_config.h`](src/sensor/sensor_config.h). Default is **DHT22** on **GPIO 6**. Optional battery ADC is GPIO **2**.
-2. Flash the sensor C6. Serial log should show `DHT22 Zigbee sensor on GPIO 6`.
+1. Wire the SHT40 as in [`src/sensor/sensor_config.h`](src/sensor/sensor_config.h): **SDA GPIO 22**, **SCL GPIO 23**, address `0x44`. The driver is bit-bang open-drain, not the IDF I2C peripheral. Optional battery ADC is GPIO **2**. An unconnected GPIO 2 reads as 0% and is not a sensor fault.
+2. Flash the sensor. Serial log should show `SHT40 Zigbee sensor on ESP32-C6-MINI-1 SDA 22 SCL 23`.
 3. Open pairing on the gateway.
 4. Confirm `Joined network`, then reports at the configured sleep interval.
-5. Gateway MQTT `{MAC}/node/N/data` should follow, including `battery` when the ADC (or H2 serial) provides it.
+5. Gateway MQTT `{MAC}/node/N/data` should follow, including `lqi` and `battery` when a sample provides them.
 
-If DHT checksum fails, add a 4.7 kΩ pull-up on DATA, keep wires short, and power the DHT from 3.3 V (some DHT22 modules prefer 5 V — use a 3.3 V-safe module or a level-safe DATA line).
+If the log says `no I2C device on GPIO 22/23` with both lines high, the C6 is seeing only its pull-ups. Check 3.3 V, GND, SDA, and SCL, and add 4.7 kΩ pull-ups to 3.3 V if the internal ones are not enough. The driver retries discovery on the next sample.
 
-### ESP32-H2 sensor demo without DHT
+### ESP32-H2 sensor demo without SHT40
 
 Firmware env: `zigbee_sensor_h2_demo`. This is a demo-only sleepy ZED; the
-production `zigbee_sensor_c6` firmware remains DHT-based.
+production `zigbee_sensor_c6` firmware reads an SHT40 over I2C.
 
 1. Flash the H2 with the commands in [Build and flash](#build-and-flash).
 2. Open pairing on the C6 hub/gateway.
 3. Reset the H2 or hold BOOT (GPIO 9) for 3 seconds to clear Zigbee state.
-4. Open its 115200 monitor and enter `set 24.5 55 87` followed by Enter.
-5. After join, the accepted value is sent immediately and repeated on the
-   configured sleep interval.
+4. Open its 115200 USB serial monitor and enter `set 24.5 55 87` followed by Enter.
+5. After join, the accepted value is reported on the next wake and then
+   repeated on the configured sleep interval.
 
 The demo never invents values. It accepts temperature **-40..80 °C**,
-humidity **0..100%**, and optional battery **0..100%**.
+humidity **0..100%**, and optional battery **0..100%**. The console is USB
+Serial/JTAG. A monitor attached to UART0 will show nothing and will not
+accept `set` lines.
 
 ---
 
@@ -695,11 +742,22 @@ humidity **0..100%**, and optional battery **0..100%**.
 
 Replace `{MAC}` with the S3 MAC **without colons** (printed at boot).
 
+### Graphical console
+
+A local web console publishes the same command JSON and shows live status. It reads the broker settings from `src/gateway/config.h` and does not expose them to the browser.
+
+```bash
+python3 -m pip install -r tests/requirements.txt
+python3 web/mqtt-console/server.py
+```
+
+Open `http://127.0.0.1:8765`. Pick the gateway when its retained status arrives, then use the relay, mode, queue, automation, pairing, sleep, and link-test controls.
+
 | Topic | Dir | Notes |
 |---|---|---|
 | `{MAC}/command` | subscribe | JSON commands |
 | `{MAC}/status` | publish, retained | Full snapshot every 10 s and on many events |
-| `{MAC}/node/{id}/data` | publish | `id` 1–16, temp / humidity |
+| `{MAC}/node/{id}/data` | publish | `id` 1–16, temperature, humidity, battery, LQI |
 | `{MAC}/ota/status` | publish, retained | OTA check / result |
 | `{MAC}/event_log` | publish | Offline relay log batches |
 
@@ -735,8 +793,10 @@ Command JSON is routed by key. Mode-specific payloads (manual relays vs automati
 {"sensor_sleep": 60}
 ```
 
-Clamped to 5–3600. Also available as the Sensors-tab slider on the HMI (5–600 s).
-Status includes `sensor_sleep_sec`. Node samples include `battery` when known.
+Clamped to 5–3600. The Sensors-tab slider sends 5–600 s. The new interval
+reaches a sleeping sensor on its next temperature report. Status includes
+`sensor_sleep_sec`. Node samples include `battery` when known and `lqi` from
+the hub neighbor table (0 until that device transmits).
 
 ### UART link test
 
@@ -758,7 +818,7 @@ Results print on USB serial and publish to `{MAC}/status` as `{"link_test":"..."
 {"all": 1}
 ```
 
-States are saved to EEPROM.
+Keys are `relay1` through `relay7`. States are saved to EEPROM.
 
 ### Automation (mode 1)
 
@@ -784,7 +844,11 @@ Hysteresis: above `max` → ON, below `min` → OFF, in band keeps last state. O
 {"automation": {"clear": true}}
 ```
 
-Up to 16 rules. `node` and `relay` are 1-based.
+Up to 16 rules are accepted in RAM. `node` and `relay` are 1-based. EEPROM
+from address 110 holds 23 bytes per enabled rule, and the queue image starts
+at address 290, so keep the saved rule count at seven or fewer. Eight or more
+enabled rules overwrite the queue, and sixteen also overlap hybrid, sleep, and
+node storage.
 
 ### Queue (mode 2)
 
@@ -865,7 +929,7 @@ The HMI is a client; the gateway remains authoritative. Touch callbacks send typ
 The industrial-dark UI has five tabs:
 
 - **Dashboard:** four tappable icon chips show display-link, Wi-Fi, MQTT/cloud, and Zigbee-hub health. The first two paired sensors are shown as two symmetric panels with orange temperature and green humidity gauges (four radial indicators maximum), plus battery in the meta line. One sensor is centered; no sensor shows a pairing prompt. Extra paired sensors remain available on the Sensors tab.
-- **Relays:** four 120 px controls plus all-off. Individual controls are rejected outside Manual mode.
+- **Relays:** seven controls plus all-off. Individual controls are rejected outside Manual mode.
 - **Sensors:** four rows per page with Previous/Next controls across up to 16
   nodes; temperature, humidity, battery, link quality and age; pairing
   countdown; sleep slider; per-node and full-network forget actions.
@@ -898,16 +962,17 @@ free heap. Optimise the measured hotspot before increasing any update rate.
 
 Frames use `A5 5A | version | type | flags/reserved | sequence LE16 | payload length LE16 | payload | CRC16-CCITT`. Payloads are bounded at 768 bytes. The parser accepts fragmented UART reads, drops noise until the next magic bytes, rejects bad CRC/length/version, and resynchronizes.
 
-Protocol version 2 defines hello, snapshot request/full snapshot, heartbeat,
-ACK/NACK, echo, and typed commands for relays, mode, pairing, node removal,
-queue, automation, hybrid, OTA, event logs, Wi-Fi reset, and diagnostics.
+Protocol version 3 defines hello, snapshot request/full snapshot, heartbeat,
+ACK/NACK, echo, Wi-Fi credentials, and typed commands for relays, mode, pairing,
+node removal, sensor sleep, queue, automation, hybrid, OTA, event logs, Wi-Fi
+reset, and diagnostics.
 HMI touch commands enter a 12-frame outbound queue owned by `displayLinkTask`;
 they no longer compete with periodic requests for a UART mutex or disappear
 after a timeout. A zero sequence result is surfaced as “Command queue busy”.
 Duplicate command sequence IDs are acknowledged from the gateway result cache
 without applying the action twice.
 
-Both firmware images run a codec self-test at boot. HMI link loss is declared after 8 seconds without valid traffic; the display retries hello and requests a complete snapshot every 3 seconds.
+Both firmware images run a codec self-test at boot. The gateway sends a heartbeat once a second. HMI link loss is declared after 12 seconds without valid traffic; the display requests a complete snapshot every 5 seconds.
 
 ### Display-only behavior
 
@@ -953,6 +1018,9 @@ From PowerShell at the repository root:
 # Link and exercise all five tabs plus relay and pairing native actions.
 .\scripts\hmi-simulator.ps1 -Action test
 
+# Run 1,000 deterministic randomized tab/control interactions.
+.\scripts\hmi-simulator.ps1 -Action monkey
+
 # Refresh the committed 800x480 PNG for every HMI screen.
 .\scripts\hmi-simulator.ps1 -Action capture
 
@@ -976,6 +1044,22 @@ program-write callbacks.
 Pixel-exact means that LVGL produces the same 800×480 framebuffer geometry and
 RGB565 values. Physical LCD gamma, viewing angle and backlight cannot be
 reproduced by a desktop monitor.
+
+### Gateway + HMI hardware test
+
+With the gateway on `COM14` and the HMI connected to its UART1 port:
+
+```powershell
+python -m pip install -r tests/requirements.txt
+python tests/gateway_hmi_hil.py --port COM14 --phase all
+```
+
+The runner reboots the gateway, discovers its MQTT topic, records timestamped
+serial/MQTT evidence under `tests/results`, tests relays/modes/queues and the
+display link, and always attempts to restore Manual mode with all relays OFF.
+Use `--phase physical` for a 90-second user-assisted touch trace or
+`--phase cleanup --no-reset --prefix DEVICE_MAC` for cleanup only. Credentials
+are read from `src/gateway/config.h` and are not printed or copied to results.
 
 ![Dashboard](hmi/dashboard.png)
 
@@ -1031,7 +1115,7 @@ The brand text label the bar used previously is gone, so the logo is the only
 brand mark.
 
 - `assets/shunya_logo.png` is the artwork source of truth.
-- `src/display/ui/generated/ui_img_shunya_logo.c` is the committed 95×40
+- `src/display/ui/generated/ui_img_shunya_logo.c` is the committed 134×56
   `LV_IMG_CF_TRUE_COLOR_ALPHA` asset (RGB565 little-endian plus one alpha
   byte, about 11 KB of flash). `LV_USE_IMG` is enabled in
   `src/display/lv_conf.h` for it.
@@ -1044,12 +1128,12 @@ converter needs only the standard library, so any Python 3 works:
 ```powershell
 python scripts\png_to_lvgl.py assets\shunya_logo.png `
     src\display\ui\generated\ui_img_shunya_logo.c ui_img_shunya_logo `
-    --height 40 --max-width 220
+    --height 56 --max-width 220
 ```
 
 The script trims transparent borders, box-filters with alpha-weighted colour
 so the edges keep their hue, and prints the resulting dimensions and byte
-count. Heights above 40 px overflow the 52 px bar. The simulator compiles the
+count. Heights above 56 px overflow the 68 px bar. The simulator compiles the
 asset through `simulator/CMakeLists.txt`; add new asset files there as well as
 relying on the firmware's `+<display/>` source filter.
 
@@ -1083,22 +1167,22 @@ diagnosticApp
 
 | Command | What it proves | Pass condition |
 |---|---|---|
-| `test hub` | Gateway GPIO5/4 ↔ C6 GPIO4/5 | Ping ACK, unique echo, and hub PAN/channel/node count within 500–800 ms |
+| `test hub` | Gateway GPIO18/17 ↔ C6 GPIO5/4 | Ping ACK, unique echo, and hub PAN/channel/node count within 500–800 ms |
 | `test display` | Gateway GPIO43/44 ↔ Waveshare GPIO44/43 | Versioned echo round-trip completes within 1 s |
 | `test display-tx` | Gateway TX → HMI RX | A complete state snapshot is sent and the screen updates |
-| `test display-loop` | Gateway display TX/RX shorted | Disconnect HMI, jumper gateway GPIO **43 → 44**, then receive the echo |
+| `test display-loop` | Gateway display TX/RX shorted | Disconnect HMI, jumper gateway GPIO **43 TX → 44 RX**, then receive the echo |
 | `test all` | Hub round-trip + HMI snapshot | Hub tests pass and the snapshot is queued |
 | `stats` | Counters | Prints TX/RX, CRC/framing errors, online state, PAN and channel |
 
 Hub tests use existing `PING`/`ACK` plus a dedicated `HUB_CMD_ECHO` (`0x17`) / `HUB_EVT_ECHO` (`0x28`). On a healthy link, USB serial shows `HUB: ping PASS` and a JSON line such as `{"link_test":"hub","pass":true,...}`.
 
 The C6 hub log
-(`.\scripts\idf-build.ps1 -Target hub -Action monitor -Port COMx`) should
-print `ping` and `echo N bytes` at the same time. Never use the system `pio`
-directly for a Thread environment.
+(`python3 scripts/shunya_build.py idf hub monitor --port COMx`) should
+print `ping` and `echo N bytes` at the same time. Use that wrapper for the
+hub, sensor, and H2 demo. The system `pio` command is only for `gateway_s3`.
 
-If `test hub` fails: common GND, crossed TX/RX (S3 5→C6 4, S3
-4←C6 5), both boards at 115200, hub firmware flashed. If `test display`
+If `test hub` fails: common GND, crossed TX/RX (S3 18→C6 5, S3
+17←C6 4), both boards at 115200, hub firmware flashed. If `test display`
 fails, verify the Waveshare UART selector, HMI 43→gateway 44, HMI
 44←gateway 43, and updated firmware on both S3 boards.
 
@@ -1151,10 +1235,10 @@ gcc -std=c11 -Isrc/common tests/display_protocol_test.c src/common/display_proto
 
 After flashing hardware, verify in order: panel image with no drift, correct
 touch orientation in all corners, native USB logs, gateway/HMI echo, reconnect
-after unplug/replug, all four relays in Manual mode, rejection outside Manual,
-admission countdown, 16-node paging, a three-device routed Thread path, queue
-pause/resume/reboot recovery, automation thresholds, OTA/log confirmations,
-inactivity dimming, and CRC counters remaining at zero.
+after unplug/replug, all seven relays in Manual mode, rejection outside Manual,
+pairing countdown, 16-node paging, queue pause/resume/reboot recovery,
+automation thresholds from a live sensor, OTA/log confirmations, and CRC
+counters remaining at zero.
 
 ### System test-case CSV
 
@@ -1162,20 +1246,18 @@ inactivity dimming, and CRC counters remaining at zero.
 acceptance checklist. It includes build/boot, H2 serial input, pairing,
 persistence, HMI/UART, diagnostics, reset, OTA, soak and fault cases. Queue
 coverage includes timing, pause/resume/stop/restart, loop/autostart,
-zero/maximum steps and every four-relay mask (`0x0..0xF`). Automation includes
+zero/maximum steps and the older four-relay masks (`0x0..0xF`). The firmware now has seven relays. Automation includes
 temperature and humidity hysteresis boundaries, debounce, stale nodes, invalid
 configuration and complete two-input AND/OR truth tables. Hybrid includes the
 four automation/queue ownership states, ownership transfer, stale inputs,
 pause/restart/loop and the exhaustive 16×16 ownership-mask matrix.
 
-The `THR-001` through `THR-028` rows in the same CSV cover all three Thread
-builds, compiled-dataset mismatch, closed/open admission, EUI-64 identity
-across RLOC16 changes, codec corruption, UDP retries/deduplication/loss,
-16-node HMI pagination, application-only forget semantics, offline
-reconciliation, three-device multi-hop routing, router failure, collector
-restart, legacy EEPROM migration, and node-16 Automation/Hybrid behavior. The
-physical multi-hop cases require at least three powered C6/H2 boards and RF
-placement that removes the collector's direct path to the far sensor.
+The `THR-001` through `THR-028` rows remain in the CSV from the earlier Thread
+design. The running firmware is Zigbee. Treat those rows as historical unless
+a case is reissued against the Zigbee coordinator, the SHT40 node, and the H2
+demo. Current node identity is the Zigbee IEEE address, mapped to logical IDs
+1–16. Queue rows that expect a four-relay mask are also behind the seven-relay
+firmware.
 
 Before a release, filter `Priority=P0`, record actual evidence named in the
 last column and resolve every failure. Then run P1 regression and the soak
@@ -1186,13 +1268,13 @@ until firmware or the documented requirement is corrected.
 The dependency-free host tests can be built with MSYS2 UCRT64 GCC on Windows:
 
 ```powershell
-& C:\msys64\ucrt64\bin\gcc.exe -std=c11 -Wall -Wextra -Werror tests\thread_codec_test.c src\thread_common\thread_codec.c -o $env:TEMP\thread_codec_test.exe
-& $env:TEMP\thread_codec_test.exe
-& C:\msys64\ucrt64\bin\gcc.exe -std=c11 -Wall -Wextra -Werror -Itests\stubs -Isrc\hub tests\thread_slots_test.c src\hub\slots.c -o $env:TEMP\thread_slots_test.exe
-& $env:TEMP\thread_slots_test.exe
-& C:\msys64\ucrt64\bin\g++.exe -std=c++17 -Wall -Wextra -Werror -Itests\stubs -Isrc\gateway tests\persistence_migration_test.cpp src\gateway\persistence.cpp -o $env:TEMP\persistence_migration_test.exe
+$env:PATH = "C:\msys64\ucrt64\bin;" + $env:PATH
+& C:\msys64\ucrt64\bin\g++.exe -std=c++17 -Wall -Wextra -Werror -Itests\stubs -Isrc\gateway -Isrc\common tests\persistence_migration_test.cpp src\gateway\persistence.cpp -o $env:TEMP\persistence_migration_test.exe
 & $env:TEMP\persistence_migration_test.exe
 ```
+
+`tests/thread_codec_test.c` and `tests/thread_slots_test.c` belong to the
+retired Thread path. They are not part of the Zigbee release check.
 
 ---
 
@@ -1204,7 +1286,7 @@ Hold GPIO 0 low, then **release** in the matching window:
 |---|---|
 | ≥ 1 s | Start pairing (if not already pairing) |
 | ≥ 5 s | Erase Wi-Fi, reboot |
-| ≥ 10 s | Forget all admitted Thread sensors, reboot |
+| ≥ 10 s | Forget all paired Zigbee sensors, reboot |
 | ≥ 20 s | Factory reset: relays off, EEPROM `0xFF`, unpair hub, erase Wi-Fi, reboot |
 
 Longer holds win over shorter ones. Do not use 20 s unless you intend a full wipe.
@@ -1224,7 +1306,7 @@ already exist. Never use a factory/merged binary as an OTA payload.
 3. From the newest timestamped release, copy `gateway-firmware.bin` to
    `ota/32e/firmware.bin` in the repository/branch served by `OTA_URL`.
 4. Create or update `ota/32e/version.txt` so it contains only the exact new
-   version followed by a newline, for example `4.0.2`.
+   version followed by a newline, for example `4.2.2`.
 5. Commit and push both files. Open `VERSION_URL` and `OTA_URL` directly and
    verify that the version is new and the binary request returns HTTP 200.
 6. Either wait for the hourly check or publish `{"ota_check":true}` to the
@@ -1301,12 +1383,17 @@ Edit [`src/gateway/config.h`](src/gateway/config.h) then rebuild the S3:
 - Pairing duration, EEPROM map
 - BLE PoP (`PROV_POP_PIN`)
 
-Hub UART pins and Thread limits: [`src/hub/hub_config.h`](src/hub/hub_config.h).
-The private dataset/service address is in
-[`src/thread_common/thread_dataset.c`](src/thread_common/thread_dataset.c);
-DHT pin and type are in [`src/sensor/sensor_config.h`](src/sensor/sensor_config.h).
+Hub UART pins and the 16-node limit: [`src/hub/hub_config.h`](src/hub/hub_config.h).
+SHT40 pins are in [`src/sensor/sensor_config.h`](src/sensor/sensor_config.h).
+
+The gateway EEPROM image is 1024 bytes. A 4096-byte image cannot be replaced
+inside the 20 KB NVS partition. Node schema v3 starts at address 512. Each
+record is 20 bytes: identity, last temperature, humidity, and battery. LQI is
+not stored. `lastSeen` is set to boot time when the table is loaded, so age
+after a reboot starts at zero until the next report.
 
 S3 flash map: [`partitions_16mb_3mb_ota_spiffs.csv`](partitions_16mb_3mb_ota_spiffs.csv).
+Zigbee images use [`partitions_zigbee.csv`](partitions_zigbee.csv).
 
 ---
 
@@ -1316,24 +1403,24 @@ S3 flash map: [`partitions_16mb_3mb_ota_spiffs.csv`](partitions_16mb_3mb_ota_spi
 |---|---|
 | `Task watchdog got triggered ... IDLE0 (CPU 0)` with `mqttTask` running | PubSubClient waits for CONNACK in a loop that never yields, so a slow or unreachable broker starves IDLE0. The socket timeout is kept below the watchdog window for this reason — do not raise it |
 | BLE provisioning, no MQTT | Finish provisioning; serial log for IP; broker reachable on 1883 |
-| Pairing does nothing; sensor says `collector has not admitted this device` | Pairing is application admission, not Thread attachment. `pair open request` and `application admission open` on the collector prove the UART command arrived. The sensor must carry the identical compiled dataset and then receive an ACK. No pair log means the UART link is down — run `test hub` |
-| DHT joined but T/H empty | Wiring GPIO 6, `DHT_MODEL`, pull-up; wait 20 s for first report |
-| H2 demo shows no serial values | Use `idf-build.ps1 -Target demo -Action monitor -Port COMx` at 115200, type `set 24.5 55`, then open pairing and wait for `application admission confirmed` |
-| H2 demo rejects a line | Use two finite decimal numbers only. Temperature must be `-40..80` °C and humidity `0..100` %. Do not include units, commas or JSON |
-| `esp_openthread.h: No such file` | Build through `scripts\idf-build.ps1`; Thread requires the pinned pioarduino ESP-IDF 5.5.5 store |
-| C6 build ignores `CONFIG_OPENTHREAD_*` | The env must pass `board_build.cmake_extra_args=-DSDKCONFIG_DEFAULTS=...`; delete the stale `sdkconfig.thread_*` file after changing defaults |
-| Sensor attached to Thread but absent from HMI | Attachment is not admission. Open the 120-second pairing window and wait for the ADMIT ACK |
-| Node paired, temp always 0 | Check DHT GPIO/model/pull-up and sensor `UDP send`/ACK logs; generic Thread nodes do not implement the Shunya report protocol |
+| Pairing does nothing | Open the 120-second window from BOOT, the HMI, or `{"pair": true}`. The hub log should show `permit join`. No pair log means the UART link is down — run `test hub` |
+| SHT40 joined but T/H empty, or `ESP_ERR_NOT_FOUND` | SDA GPIO 22, SCL GPIO 23, 3.3 V, GND, and 4.7 kΩ pull-ups. A scan with both lines high and no ACK is electrical. Wait one sleep interval for the next report |
+| Sleep slider does not change the sensor | The write is delivered on the next temperature report. Wait one current interval, then confirm the new `sleep=` line on the sensor |
+| LQI stays 0 | The hub fills LQI from the neighbor table when a frame arrives. A paired node that is not transmitting stays at 0. Flash the current `zigbee_hub_c6` image |
+| H2 demo shows no serial values | Monitor the H2 USB-C port with `python3 scripts/shunya_build.py idf demo monitor --port COMx` at 115200. The prompt is `Serial input ready`. Type `set 24.5 55` |
+| H2 demo rejects a line | Use temperature `-40..80` °C, humidity `0..100` %, and an optional battery `0..100`. Do not include units, commas, or JSON |
+| Node paired, temp always 0 | Check the SHT40 wiring and the sensor report log. The H2 demo stays at 0 until a valid `set` line is accepted |
 | `No OTA partition found` | Flash with `gateway_s3` so the 16 MB dual-OTA table is on the chip |
 | HMI black or touch dead | Use the exact ESP32-S3-Touch-LCD-7 model; confirm PSRAM is detected in USB logs, board UART selector position, and flash `display_s3`. Panel/touch are ST7262/GT911 with I2C GPIO8/9, touch IRQ GPIO4 |
 | HMI says link lost | Cross HMI TX43→gateway RX44 and HMI RX44←gateway TX43, common GND, 115200; run `test display`; ensure the Pico is disconnected |
-| Hub UART dead | Cross gateway TX5→C6 RX4 and gateway RX4←C6 TX5, common GND; run `test hub`; C6 log should show `ping` |
-| Old four-node install loses nodes | Gateway schema v2 migrates up to four legacy 11-byte records to address 512 once. If the old count/records were already corrupt, reopen admission |
+| Hub UART dead | Cross gateway TX18→C6 RX5 and gateway RX17←C6 TX4, common GND; run `test hub`; the hub log should show `ping` |
+| Nodes disappear after reboot | Flash gateway 4.2.1 or newer. Schema v3 restores identity and the last reading. A missing hub LIST does not delete a saved node |
+| `ESP_ERR_NVS_NOT_ENOUGH_SPACE` on EEPROM commit | The stored NVS blob is the old 4 KB image. Current firmware shrinks it to 1024 bytes before the next commit. Do not erase the whole NVS partition; Wi-Fi credentials live there |
 | `WindowsLongPathError` unpacking `esp32-arduino-libs` | For the gateway, keep `espressif32@7.1.2`. For the HMI, always use `scripts\display-build.ps1`; its short package/cache paths avoid the nested Matter-header limit |
 | `ModuleNotFoundError: No module named 'intelhex'` | `esptool` 4.11 needs it. Install into the interpreter behind `pio` (`(Get-Command pio).Source`), e.g. `python -m pip install intelhex` |
 | Serial monitor shows nothing | Press reset — nodes only log at boot and on events. Otherwise the monitor is on the wrong port: pass `-Port`, and close any other monitor holding it (`Get-Process pio`) |
-| OpenThread settings/NVS errors after migration | Fully flash `partitions_zigbee.csv`; an app-only upload cannot replace the old Zigbee partition table |
-| `No module named 'SCons.Tool.FortranCommon'` | A Thread env was built with the system `pio` instead of `scripts\idf-build.ps1`, so the two Cores overwrote each other's `tool-scons`. Delete `tool-scons*` from the affected `packages` folder and rebuild via the script |
+| Zigbee settings missing after a partition change | Fully flash `partitions_zigbee.csv`. An application-only upload cannot replace the partition table |
+| `No module named 'SCons.Tool.FortranCommon'` | A Zigbee env was built with the system `pio` instead of `scripts/shunya_build.py`, so the two Cores overwrote each other's `tool-scons`. Delete `tool-scons*` from the affected `packages` folder and rebuild via the script |
 | `WinError 3` / `WinError 5` while installing packages, or a toolchain whose `bin` is empty | Two platforms fought over one package store, or two builds ran at once. Delete the broken package folder and rebuild the one environment on its own |
 | Compiler reported "broken" or "not a full path to an existing compiler tool" | A stale `pio` process is still installing in the background. `Get-Process pio`, kill leftovers, then rebuild |
 
@@ -1346,10 +1433,10 @@ Treat this as a **lab / private-network** product until hardened:
 - MQTT username and password are compile-time constants; the broker is unencrypted.
 - BLE PoP is a fixed string.
 - OTA HTTPS does not verify the server certificate.
-- The Thread network key and PSKc are compiled into every hub/sensor image.
-  Pairing only controls the collector's application admission table. A person
-  with a firmware image can attach to the mesh; rotating the dataset requires
-  reflashing every Thread device.
+- The Zigbee network key is created by the coordinator and stored in its NVS.
+  Pairing only opens permit-join. A device that already joined can report
+  until it is forgotten. Forming a new network requires reflashing or
+  resetting the hub and pairing the sensors again.
 
 Do not expose the MQTT port to the public internet. Rotate credentials in `config.h` for any deployment that is not a closed LAN.
 
@@ -1357,6 +1444,6 @@ Do not expose the MQTT port to the public internet. Rotate credentials in `confi
 
 ## License / product context
 
-This tree contains the Shunya gateway, Waveshare 7-inch HMI, ESP32-C6 Thread
-collector, ESP32-C6 DHT FTD, and ESP32-H2 serial-controlled Thread demo firmware.
-Gateway version **4.0.1**; HMI version **1.2.0**.
+This tree contains the Shunya gateway, Waveshare 7-inch HMI, ESP32-C6 Zigbee
+coordinator, ESP32-C6-MINI-1 SHT40 end device, and ESP32-H2 serial-input demo.
+Gateway version **4.2.1**; HMI version **1.3.0**.

@@ -11,14 +11,17 @@ EEPROMClass EEPROM;
 TestSerial Serial;
 NodeInfo nodes[MAX_NODES];
 uint8_t nodeCount;
-bool relayStates[4];
-uint8_t relayPins[4];
+bool relayStates[RELAY_COUNT];
+uint8_t relayPins[RELAY_COUNT];
 uint8_t operationMode;
 AutomationRule autoRules[MAX_AUTO_RULES];
 QueueConfig queueConfig;
 uint8_t control_states[7];
 uint8_t hybridLogic;
+uint16_t sensorSleepSec;
 SemaphoreHandle_t eepromMutex;
+
+void hubRequestSetSleep(uint16_t) {}
 
 static void write_legacy_node(int index, uint8_t id)
 {

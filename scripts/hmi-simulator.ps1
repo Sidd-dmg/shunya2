@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("setup", "build", "run", "test", "capture", "clean")]
+    [ValidateSet("setup", "build", "run", "test", "monkey", "capture", "clean")]
     [string]$Action = "build",
     [string]$Msys2Root = ""
 )
@@ -130,6 +130,9 @@ if ($Action -eq "run") {
 } elseif ($Action -eq "test") {
     Write-Host "[hmi-simulator] Running native interaction self-test..." -ForegroundColor Cyan
     Invoke-Ucrt64 "'$build/shunya-hmi-simulator.exe' --self-test"
+} elseif ($Action -eq "monkey") {
+    Write-Host "[hmi-simulator] Running 1000 randomized HMI interactions..." -ForegroundColor Cyan
+    Invoke-Ucrt64 "'$build/shunya-hmi-simulator.exe' --monkey-test 1000"
 } elseif ($Action -eq "capture") {
     Write-Host "[hmi-simulator] Capturing every 800x480 HMI screen..." -ForegroundColor Cyan
     $hmiRoot = Join-Path $RepoRoot "hmi"

@@ -18,6 +18,10 @@ extern "C" bool uiBackendTakeOtaStatus(display_hmi_ota_status_t *status) {
     return status && displayStateTakeOtaStatus(*status);
 }
 
+extern "C" bool uiBackendTakeWifiProv(display_wifi_prov_t *info) {
+    return info && displayStateTakeWifiProv(*info);
+}
+
 extern "C" uint16_t uiBackendSendCommand(uint8_t type, const void *payload, uint16_t length) {
     return displaySendCommand(type, payload, length);
 }

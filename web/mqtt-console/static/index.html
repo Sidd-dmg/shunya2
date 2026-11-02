@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shunya gateway console</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <div>
+        <strong>Shunya</strong>
+        <small>Gateway console</small>
+      </div>
+    </div>
+    <label class="device-pick">
+      Gateway
+      <select id="device"></select>
+    </label>
+    <div id="broker" class="pill offline">Broker offline</div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div>
+        <p class="eyebrow" id="mode-name">Waiting for status</p>
+        <h1 id="device-title">No gateway seen yet</h1>
+        <p class="muted" id="device-meta">The console listens for retained status on the configured broker.</p>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Relays</h2>
+          <button id="all-off" class="ghost" type="button">All off</button>
+        </div>
+        <div class="relays" id="relays"></div>
+        <p class="hint" id="relay-hint"></p>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>Mode</h2></div>
+        <div class="modes" id="modes"></div>
+        <label class="check"><input id="graceful" type="checkbox"> Graceful queue exit</label>
+        <label class="check"><input id="autosave" type="checkbox" checked> Save mode</label>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>Sensors</h2></div>
+        <div class="pair-row">
+          <button id="pair" type="button">Open pairing</button>
+          <span id="pair-state" class="muted">Closed</span>
+        </div>
+        <label class="sleep">
+          Sleep <output id="sleep-out">30 s</output>
+          <input id="sleep" type="range" min="5" max="3600" value="30">
+        </label>
+        <button id="sleep-apply" type="button">Apply sleep</button>
+        <div class="nodes" id="nodes"></div>
+      </article>
+    </section>
+
+    <section class="grid two">
+      <article class="card">
+        <div class="card-head">
+          <h2>Queue</h2>
+          <button id="queue-add" class="ghost" type="button">Add step</button>
+        </div>
+        <div id="queue-steps" class="steps"></div>
+        <div class="row">
+          <label class="check"><input id="queue-loop" type="checkbox"> Loop</label>
+          <label class="check"><input id="queue-auto" type="checkbox" checked> Auto start</label>
+        </div>
+        <div class="row">
+          <button id="queue-apply" type="button">Run queue</button>
+          <button id="queue-pause" class="ghost" type="button">Pause</button>
+          <button id="queue-resume" class="ghost" type="button">Resume</button>
+          <button id="queue-restart" class="ghost" type="button">Restart</button>
+          <button id="queue-stop" class="ghost" type="button">Stop</button>
+        </div>
+        <p class="hint" id="queue-state"></p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Automation</h2>
+          <button id="rule-add" class="ghost" type="button">Add rule</button>
+        </div>
+        <div id="rules" class="steps"></div>
+        <div class="row">
+          <label>Hybrid logic
+            <select id="hybrid-logic">
+              <option>AND</option>
+              <option>OR</option>
+            </select>
+          </label>
+          <button id="rules-apply" type="button">Save rules</button>
+          <button id="rules-clear" class="ghost" type="button">Clear</button>
+          <button id="hybrid-apply" class="ghost" type="button">Save hybrid logic</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid two">
+      <article class="card">
+        <div class="card-head"><h2>Link and logs</h2></div>
+        <div class="row wrap" id="tests"></div>
+        <div class="row">
+          <button id="log-count" class="ghost" type="button">Count log</button>
+          <button id="log-send" class="ghost" type="button">Send log</button>
+          <button id="log-clear" class="ghost" type="button">Clear log</button>
+          <button id="ota-check" class="ghost" type="button">Check update</button>
+        </div>
+        <p class="hint" id="log-state"></p>
+      </article>
+      <article class="card">
+        <div class="card-head">
+          <h2>Activity</h2>
+          <button id="clear-activity" class="ghost" type="button">Clear</button>
+        </div>
+        <ol id="activity"></ol>
+      </article>
+    </section>
+
+    <details class="raw">
+      <summary>Latest status JSON</summary>
+      <pre id="raw">{}</pre>
+    </details>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

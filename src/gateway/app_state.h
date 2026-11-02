@@ -11,8 +11,8 @@ extern unsigned long pairingModeStartTime;
 extern unsigned long buttonPressStartTime;
 extern bool buttonPressed;
 
-extern bool relayStates[4];
-extern uint8_t relayPins[4];
+extern bool relayStates[RELAY_COUNT];
+extern uint8_t relayPins[RELAY_COUNT];
 extern uint8_t operationMode;
 extern AutomationRule autoRules[MAX_AUTO_RULES];
 extern QueueConfig queueConfig;
@@ -25,6 +25,8 @@ extern uint8_t wifi_flag;
 extern uint8_t mqtt_flag;
 extern uint8_t pair_mode;
 extern uint8_t ota_available;
+/* [0..3] mirror relays 1-4. [4] is the mode, [5] pairing, [6] provisioning.
+ * Relays 5-7 live only in relayStates because those slots are already used. */
 extern uint8_t control_states[7];
 extern float temps[MAX_NODES];
 extern float hums[MAX_NODES];
@@ -33,8 +35,8 @@ extern uint16_t sensorSleepSec;
 extern uint8_t hybridLogic;
 extern bool automationActive;
 extern bool queueActive;
-extern bool hybridRelayStates[4];
-extern bool automationOwns[4];
+extern bool hybridRelayStates[RELAY_COUNT];
+extern bool automationOwns[RELAY_COUNT];
 
 extern bool timeSync;
 extern unsigned long lastNTPSync;

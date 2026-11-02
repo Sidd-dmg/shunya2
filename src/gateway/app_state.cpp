@@ -9,8 +9,11 @@ unsigned long pairingModeStartTime = 0;
 unsigned long buttonPressStartTime = 0;
 bool buttonPressed = false;
 
-bool relayStates[4] = {false, false, false, false};
-uint8_t relayPins[4] = {RELAY1_PIN, RELAY2_PIN, RELAY3_PIN, RELAY4_PIN};
+bool relayStates[RELAY_COUNT] = {};
+uint8_t relayPins[RELAY_COUNT] = {
+    RELAY1_PIN, RELAY2_PIN, RELAY3_PIN, RELAY4_PIN,
+    RELAY5_PIN, RELAY6_PIN, RELAY7_PIN
+};
 uint8_t operationMode = MODE_MANUAL;
 AutomationRule autoRules[MAX_AUTO_RULES];
 QueueConfig queueConfig;
@@ -31,8 +34,8 @@ uint16_t sensorSleepSec = SENSOR_SLEEP_DEFAULT_S;
 uint8_t hybridLogic = 0;
 bool automationActive = false;
 bool queueActive = false;
-bool hybridRelayStates[4] = {false, false, false, false};
-bool automationOwns[4] = {false, false, false, false};
+bool hybridRelayStates[RELAY_COUNT] = {};
+bool automationOwns[RELAY_COUNT] = {};
 
 bool timeSync = false;
 unsigned long lastNTPSync = 0;

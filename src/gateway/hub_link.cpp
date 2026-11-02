@@ -237,6 +237,12 @@ static void pushSensorItem(SensorEvtType type, const uint8_t *payload, uint8_t l
         }
     } else if (length >= 12) {
         item.lqi = payload[11];
+        if (type == SENSOR_EVT_LIST && length >= 21) {
+            memcpy(&item.temperature, &payload[12], 4);
+            memcpy(&item.humidity, &payload[16], 4);
+            item.batteryPercent = payload[20];
+            item.hasReading = true;
+        }
     }
     xQueueSend(sensorQueue, &item, pdMS_TO_TICKS(20));
 }

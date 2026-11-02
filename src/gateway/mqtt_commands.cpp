@@ -29,8 +29,7 @@ static void handleModeCommand(JsonDocument &doc) {
     }
     transitionToMode(newMode, graceful);
     if (doc["auto_save"].as<bool>()) {
-        EEPROM.write(EEPROM_MODE_ADDR, operationMode);
-        EEPROM.commit();
+        saveModeConfig();
     }
     publishStatus();
 }
@@ -41,7 +40,7 @@ static void handleManualCommand(JsonDocument &doc) {
         requestAllRelays(doc["all"].as<bool>(), 0);
         changed = true;
     }
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < RELAY_COUNT; i++) {
         String relayKey = "relay" + String(i + 1);
         if (hasKey(doc[relayKey])) {
             requestRelay(i, doc[relayKey].as<bool>(), 0);
@@ -49,6 +48,7 @@ static void handleManualCommand(JsonDocument &doc) {
         }
     }
     if (changed) {
+        relayWaitForIdle(200);
         saveManualModeConfig();
         publishStatus();
     }
@@ -60,7 +60,9 @@ static void handleAutomationConfig(JsonDocument &doc) {
     }
     JsonObject automation = doc["automation"];
     if (automation["clear"] | false) {
+        const uint8_t release = automationReleaseMask();
         initializeAutomationRules();
+        applyAutomationRelease(release);
         saveAutomationConfig();
         publishStatus();
         return;
@@ -68,6 +70,7 @@ static void handleAutomationConfig(JsonDocument &doc) {
     if (!hasKey(automation["rules"])) {
         return;
     }
+    const uint8_t release = automationReleaseMask();
     initializeAutomationRules();
     int ruleIndex = 0;
     for (JsonObject ruleObj : automation["rules"].as<JsonArray>()) {
@@ -107,6 +110,7 @@ static void handleAutomationConfig(JsonDocument &doc) {
         autoRules[ruleIndex].lastStateChange = 0;
         ruleIndex++;
     }
+    applyAutomationRelease(release);
     saveAutomationConfig();
     publishStatus();
 }
@@ -116,6 +120,8 @@ static void handleQueueConfig(JsonDocument &doc) {
         return;
     }
     queueRunning = false;
+    queuePaused = false;
+    requestAllRelays(false, 2);
     JsonObject queueObj = doc["queue"];
     queueConfig.loop = queueObj["loop"] | true;
     queueConfig.autoStart = queueObj["auto_start"] | true;
@@ -133,7 +139,7 @@ static void handleQueueConfig(JsonDocument &doc) {
             } else if (hasKey(step["relays"])) {
                 uint8_t mask = 0;
                 for (uint8_t r : step["relays"].as<JsonArray>()) {
-                    if (r >= 1 && r <= 4) {
+                    if (r >= 1 && r <= RELAY_COUNT) {
                         mask |= (1 << (r - 1));
                     }
                 }
@@ -141,7 +147,7 @@ static void handleQueueConfig(JsonDocument &doc) {
                 queueConfig.steps[queueConfig.stepCount].duration = step["duration"];
             } else if (hasKey(step["relay"])) {
                 uint8_t r = step["relay"];
-                if (r >= 1 && r <= 4) {
+                if (r >= 1 && r <= RELAY_COUNT) {
                     queueConfig.steps[queueConfig.stepCount].relayMask = (1 << (r - 1));
                 }
                 queueConfig.steps[queueConfig.stepCount].duration = step["duration"];
@@ -157,7 +163,7 @@ static void handleQueueConfig(JsonDocument &doc) {
         queueStepStartTime = millis();
         QueueStep &firstStep = queueConfig.steps[0];
         if (firstStep.relayMask != 0) {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < RELAY_COUNT; i++) {
                 if (firstStep.relayMask & (1 << i)) {
                     requestRelay(i, true, 2);
                 }
@@ -169,10 +175,10 @@ static void handleQueueConfig(JsonDocument &doc) {
 
 static void handleQueueControl(JsonDocument &doc) {
     String control = doc["queue_control"].as<String>();
-    if (control == "pause" && queueRunning && !queuePaused) {
-        queuePaused = true;
-    } else if (control == "resume" && queueRunning && queuePaused) {
-        queuePaused = false;
+    if (control == "pause") {
+        pauseQueue();
+    } else if (control == "resume") {
+        resumeQueue();
     } else if (control == "stop") {
         queueRunning = false;
         queuePaused = false;
@@ -189,7 +195,7 @@ static void handleQueueControl(JsonDocument &doc) {
         saveQueueConfig();
         QueueStep &firstStep = queueConfig.steps[0];
         if (firstStep.relayMask != 0) {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < RELAY_COUNT; i++) {
                 if (firstStep.relayMask & (1 << i)) {
                     requestRelay(i, true, 2);
                 }

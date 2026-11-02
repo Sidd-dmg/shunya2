@@ -19,7 +19,7 @@
 #include "sensor_config.h"
 #include "shunya_zb.h"
 #ifndef SENSOR_DEMO_SERIAL
-#include "dht.h"
+#include "sht40.h"
 #endif
 
 static const char *TAG = "zb_sensor";
@@ -127,16 +127,22 @@ static void set_attr_u8(uint16_t cluster, uint16_t attr, uint8_t value)
 
 static void report_attr(uint16_t cluster, uint16_t attr)
 {
-    esp_zb_zcl_report_attr_cmd_t cmd = {
-        .address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
-        .clusterID = cluster,
-        .attributeID = attr,
-        .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI,
-        .zcl_basic_cmd = {
-            .src_endpoint = SHUNYA_ZB_ENDPOINT,
-        },
-    };
-    esp_zb_zcl_report_attr_cmd_req(&cmd);
+    /* Bound-only delivery never leaves this device: the coordinator writes
+     * sleep by short address, but nothing creates a binding for reports. */
+    esp_zb_zcl_report_attr_cmd_t cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.zcl_basic_cmd.dst_addr_u.addr_short = 0x0000;
+    cmd.zcl_basic_cmd.dst_endpoint = SHUNYA_ZB_ENDPOINT;
+    cmd.zcl_basic_cmd.src_endpoint = SHUNYA_ZB_ENDPOINT;
+    cmd.address_mode = ESP_ZB_APS_ADDR_MODE_16_ENDP_PRESENT;
+    cmd.clusterID = cluster;
+    cmd.attributeID = attr;
+    cmd.direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI;
+    esp_err_t err = esp_zb_zcl_report_attr_cmd_req(&cmd);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "report cluster 0x%04x attr 0x%04x failed: %s",
+                 cluster, attr, esp_err_to_name(err));
+    }
 }
 
 static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
@@ -204,8 +210,12 @@ static esp_err_t zb_attribute_handler(const esp_zb_zcl_set_attr_value_message_t 
         message->attribute.id == SHUNYA_ZB_ATTR_SLEEP_SEC &&
         message->attribute.data.value && message->attribute.data.size >= 2) {
         const uint8_t *bytes = message->attribute.data.value;
-        uint16_t seconds = (uint16_t)(bytes[0] | ((uint16_t)bytes[1] << 8));
-        s_sleep_sec = shunya_clamp_sleep_sec(seconds);
+        uint16_t seconds = shunya_clamp_sleep_sec(
+            (uint16_t)(bytes[0] | ((uint16_t)bytes[1] << 8)));
+        if (seconds == s_sleep_sec) {
+            return ESP_OK;
+        }
+        s_sleep_sec = seconds;
         persist_sleep(s_sleep_sec);
         ESP_LOGI(TAG, "sleep interval set to %u s", s_sleep_sec);
         if (s_report_task) {
@@ -259,6 +269,9 @@ static void demo_serial_task(void *arg)
     (void)arg;
     char line[96];
     size_t used = 0;
+    /* stdin is fully buffered on this console, so a typed line would sit
+     * unread until the buffer filled. */
+    setvbuf(stdin, NULL, _IONBF, 0);
     ESP_LOGI(TAG, "Serial input ready. Type: set 24.5 55.0  [battery%%]");
     for (;;) {
         const int input = getchar();
@@ -275,7 +288,7 @@ static void demo_serial_task(void *arg)
             float t, h;
             uint8_t b;
             if (!parse_demo_values(line, &t, &h, &b)) {
-                ESP_LOGW(TAG, "Invalid input. Use: set <temp_C> <humidity_%%> [battery_%%]");
+                ESP_LOGW(TAG, "Invalid input '%s'. Use: set <temp_C> <humidity_%%> [battery_%%]", line);
                 continue;
             }
             taskENTER_CRITICAL(&s_demo_lock);
@@ -285,6 +298,8 @@ static void demo_serial_task(void *arg)
             s_demo_has_value = true;
             taskEXIT_CRITICAL(&s_demo_lock);
             if (s_report_task) xTaskNotifyGive(s_report_task);
+            ESP_LOGI(TAG, "Demo set T=%.2f H=%.2f battery=%u", t, h,
+                     b == BATTERY_PCT_UNKNOWN ? 0 : b);
         }
     }
 }
@@ -317,15 +332,15 @@ static void report_task(void *arg)
         float t = 0, h = 0;
         esp_err_t error = ESP_FAIL;
         for (int attempt = 0; attempt < 3 && error != ESP_OK; ++attempt) {
-            error = dht_read(DHT_GPIO, DHT_MODEL, &t, &h);
-            if (error != ESP_OK) vTaskDelay(pdMS_TO_TICKS(500));
+            error = sht40_read(&t, &h);
+            if (error != ESP_OK) vTaskDelay(pdMS_TO_TICKS(50));
         }
         if (error == ESP_OK) {
             temp_x100 = (int16_t)lroundf(t * 100.0f);
             hum_x100 = (uint16_t)lroundf(h * 100.0f);
             have_value = true;
         } else {
-            ESP_LOGW(TAG, "DHT read failed: %s", esp_err_to_name(error));
+            ESP_LOGW(TAG, "SHT40 read failed: %s", esp_err_to_name(error));
         }
 #if BATTERY_ADC_GPIO >= 0
         s_battery_pct = battery_read_percent();
@@ -345,7 +360,7 @@ static void report_task(void *arg)
                         ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID);
             report_attr(SHUNYA_ZB_CLUSTER_ID, SHUNYA_ZB_ATTR_BATTERY_PCT);
             esp_zb_lock_release();
-            ESP_LOGI(TAG, "DHT T=%.2f H=%.2f battery=%u%% sleep=%us",
+            ESP_LOGI(TAG, "SHT40 T=%.2f H=%.2f battery=%u%% sleep=%us",
                      temp_x100 / 100.0f, hum_x100 / 100.0f,
                      s_battery_pct == BATTERY_PCT_UNKNOWN ? 0 : s_battery_pct, s_sleep_sec);
         }
@@ -367,7 +382,7 @@ static esp_zb_cluster_list_t *create_sensor_clusters(void)
 #ifdef SENSOR_DEMO_SERIAL
     char model[] = "\x0E" "DEMO-SERIAL-H2";
 #else
-    char model[] = "\x0A" "DHT-ZIGBEE";
+    char model[] = "\x05" "SHT40";
 #endif
     esp_zb_basic_cluster_add_attr(basic, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, manufacturer);
     esp_zb_basic_cluster_add_attr(basic, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, model);

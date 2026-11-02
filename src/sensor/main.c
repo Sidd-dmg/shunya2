@@ -5,7 +5,7 @@
 #include "freertos/task.h"
 #include "sensor_config.h"
 #ifndef SENSOR_DEMO_SERIAL
-#include "dht.h"
+#include "sht40.h"
 #endif
 #include "zb_sensor.h"
 
@@ -54,7 +54,10 @@ void app_main(void) {
     ESP_ERROR_CHECK(err);
 
 #ifndef SENSOR_DEMO_SERIAL
-    ESP_ERROR_CHECK(dht_init(DHT_GPIO));
+    if (sht40_init() != ESP_OK) {
+        ESP_LOGE(TAG, "SHT40 init failed (SDA %d SCL %d)",
+                 SHT40_SDA_GPIO, SHT40_SCL_GPIO);
+    }
 #endif
     xTaskCreate(button_task, "btn", 2048, NULL, 2, NULL);
     zb_sensor_start();
@@ -62,7 +65,7 @@ void app_main(void) {
     ESP_LOGW(TAG, "ESP32-H2 DEMO sensor: enter temperature and humidity in the serial monitor");
     ESP_LOGI(TAG, "Input format: set <temperature_C> <humidity_pct> [battery_pct]  (example: set 24.5 55.0 87)");
 #else
-    ESP_LOGI(TAG, "DHT%d Zigbee sensor on GPIO %d. Open hub pairing to join.",
-             DHT_MODEL, DHT_GPIO);
+    ESP_LOGI(TAG, "SHT40 Zigbee sensor on ESP32-C6-MINI-1 SDA %d SCL %d. Open hub pairing to join.",
+             SHT40_SDA_GPIO, SHT40_SCL_GPIO);
 #endif
 }

@@ -6,6 +6,53 @@
 #include <Arduino.h>
 #include <cstring>
 
+#if !defined(TEST_EEPROM_H)
+#include <nvs.h>
+
+/* Arduino writes the EEPROM image as one NVS blob and keeps the old copy
+ * until the new copy fits. Erase the oversized blob before opening it. */
+static void shrinkStoredEeprom(void) {
+    nvs_handle_t handle;
+    if (nvs_open("eeprom", NVS_READWRITE, &handle) != ESP_OK) return;
+    size_t stored = 0;
+    if (nvs_get_blob(handle, "eeprom", nullptr, &stored) == ESP_OK &&
+        stored > EEPROM_SIZE) {
+        uint8_t *previous = (uint8_t *)malloc(stored);
+        uint8_t *kept = (uint8_t *)malloc(EEPROM_SIZE);
+        size_t readSize = stored;
+        if (previous && kept &&
+            nvs_get_blob(handle, "eeprom", previous, &readSize) == ESP_OK) {
+            memcpy(kept, previous, EEPROM_SIZE);
+            if (nvs_erase_key(handle, "eeprom") == ESP_OK &&
+                nvs_commit(handle) == ESP_OK &&
+                nvs_set_blob(handle, "eeprom", kept, EEPROM_SIZE) == ESP_OK) {
+                nvs_commit(handle);
+                Serial.printf("EEPROM image reduced from %u to %u bytes\n",
+                              (unsigned)stored, EEPROM_SIZE);
+            }
+        }
+        free(previous);
+        free(kept);
+    }
+    nvs_close(handle);
+}
+
+static bool commitEeprom(void) {
+    if (EEPROM.commit()) return true;
+    Serial.println("EEPROM commit failed; reclaiming NVS blob");
+    nvs_handle_t handle;
+    if (nvs_open("eeprom", NVS_READWRITE, &handle) != ESP_OK) return false;
+    nvs_erase_key(handle, "eeprom");
+    nvs_commit(handle);
+    nvs_close(handle);
+    const bool saved = EEPROM.commit();
+    if (!saved) Serial.println("EEPROM commit failed after reclaim");
+    return saved;
+}
+#else
+static bool commitEeprom(void) { return EEPROM.commit(); }
+#endif
+
 struct __attribute__((packed)) NodeSchemaMarker {
     uint32_t magic;
     uint8_t version;
@@ -41,6 +88,9 @@ static void readNodeRecord(int address, NodeInfo &node) {
 }
 
 void persistenceBegin(void) {
+#if !defined(TEST_EEPROM_H)
+    shrinkStoredEeprom();
+#endif
     EEPROM.begin(EEPROM_SIZE);
 }
 
@@ -68,35 +118,45 @@ void initializeQueueConfig(void) {
     memset(queueConfig.steps, 0, sizeof(queueConfig.steps));
 }
 
+static int nodeRecordSize(uint8_t version) {
+    return version >= 3 ? EEPROM_NODE_RECORD_V3_SIZE : EEPROM_NODE_RECORD_SIZE;
+}
+
 void loadNodesFromEEPROM(void) {
     NodeSchemaMarker marker{};
     EEPROM.get(EEPROM_NODES_SCHEMA_ADDR, marker);
-    uint8_t records[MAX_NODES * EEPROM_NODE_RECORD_SIZE];
-    for (size_t i = 0; i < sizeof(records); ++i)
-        records[i] = EEPROM.read(EEPROM_NODES_V2_START_ADDR + (int)i);
-
-    const bool schemaValid =
+    const bool versioned =
         marker.magic == EEPROM_NODES_SCHEMA_MAGIC &&
-        marker.version == EEPROM_NODES_SCHEMA_VERSION &&
-        marker.count <= MAX_NODES &&
-        marker.recordsCrc == nodeRecordsCrc(records, sizeof(records));
-    if (schemaValid) {
-        nodeCount = marker.count;
-        for (uint8_t i = 0; i < nodeCount; ++i)
-            readNodeRecord(EEPROM_NODES_V2_START_ADDR +
-                               i * EEPROM_NODE_RECORD_SIZE,
-                           nodes[i]);
-        Serial.printf("Loaded %u nodes from EEPROM schema v%u\n",
-                      nodeCount, marker.version);
-        return;
-    }
-
-    /* A recognized v2 marker with an invalid count/CRC is a torn or corrupt
-     * v2 write, not permission to resurrect stale legacy records. */
-    if (marker.magic == EEPROM_NODES_SCHEMA_MAGIC &&
-        marker.version == EEPROM_NODES_SCHEMA_VERSION) {
+        (marker.version == 2 || marker.version == EEPROM_NODES_SCHEMA_VERSION) &&
+        marker.count <= MAX_NODES;
+    if (versioned) {
+        const int recordSize = nodeRecordSize(marker.version);
+        uint8_t records[MAX_NODES * EEPROM_NODE_RECORD_V3_SIZE];
+        const size_t bytes = (size_t)MAX_NODES * (size_t)recordSize;
+        for (size_t i = 0; i < bytes; ++i)
+            records[i] = EEPROM.read(EEPROM_NODES_V2_START_ADDR + (int)i);
+        if (marker.recordsCrc == nodeRecordsCrc(records, bytes)) {
+            nodeCount = marker.count;
+            for (uint8_t i = 0; i < nodeCount; ++i) {
+                const int address = EEPROM_NODES_V2_START_ADDR + i * recordSize;
+                readNodeRecord(address, nodes[i]);
+                if (marker.version >= 3) {
+                    EEPROM.get(address + 11, nodes[i].lastTemperature);
+                    EEPROM.get(address + 15, nodes[i].lastHumidity);
+                    nodes[i].batteryPercent = EEPROM.read(address + 19);
+                }
+            }
+            Serial.printf("Loaded %u nodes from EEPROM schema v%u\n",
+                          nodeCount, marker.version);
+            if (marker.version != EEPROM_NODES_SCHEMA_VERSION) {
+                saveNodesToEEPROM();
+            }
+            return;
+        }
+        /* A recognized marker with an invalid count/CRC is a torn write,
+         * not permission to resurrect stale legacy records. */
         nodeCount = 0;
-        Serial.println("Node schema v2 corrupt; resetting node table");
+        Serial.println("Node schema corrupt; resetting node table");
         saveNodesToEEPROM();
         return;
     }
@@ -112,23 +172,26 @@ void loadNodesFromEEPROM(void) {
     /* Migration is one-way. Clearing the old count prevents an erased v2
      * marker from reviving records that the user later forgot. */
     EEPROM.write(EEPROM_NODE_COUNT_ADDR, 0);
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void saveNodesToEEPROM(void) {
     if (eepromMutex && xSemaphoreTake(eepromMutex, pdMS_TO_TICKS(200)) != pdTRUE) {
         return;
     }
-    uint8_t records[MAX_NODES * EEPROM_NODE_RECORD_SIZE] = {};
+    uint8_t records[MAX_NODES * EEPROM_NODE_RECORD_V3_SIZE] = {};
     const uint8_t savedCount = nodeCount <= MAX_NODES ? nodeCount : MAX_NODES;
     for (uint8_t i = 0; i < savedCount; ++i) {
-        const size_t offset = i * EEPROM_NODE_RECORD_SIZE;
+        const size_t offset = i * EEPROM_NODE_RECORD_V3_SIZE;
         records[offset] = nodes[i].nodeId;
         for (uint8_t j = 0; j < 8; ++j) {
             records[offset + 1 + j] = nodes[i].ieee[j];
         }
         records[offset + 9] = (uint8_t)(nodes[i].shortAddr & 0xFF);
         records[offset + 10] = (uint8_t)(nodes[i].shortAddr >> 8);
+        memcpy(&records[offset + 11], &nodes[i].lastTemperature, 4);
+        memcpy(&records[offset + 15], &nodes[i].lastHumidity, 4);
+        records[offset + 19] = nodes[i].batteryPercent;
     }
     for (size_t i = 0; i < sizeof(records); ++i)
         EEPROM.write(EEPROM_NODES_V2_START_ADDR + (int)i, records[i]);
@@ -137,18 +200,18 @@ void saveNodesToEEPROM(void) {
         nodeRecordsCrc(records, sizeof(records))
     };
     EEPROM.put(EEPROM_NODES_SCHEMA_ADDR, marker);
-    EEPROM.commit();
+    const bool saved = commitEeprom();
     if (eepromMutex) {
         xSemaphoreGive(eepromMutex);
     }
-    Serial.println("Nodes saved to EEPROM");
+    Serial.println(saved ? "Nodes saved to EEPROM" : "Node save failed");
 }
 
 void saveManualModeConfig(void) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < RELAY_COUNT; i++) {
         EEPROM.write(EEPROM_MANUAL_RELAYS_ADDR + i, relayStates[i] ? 1 : 0);
     }
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void saveModeConfig(void) {
@@ -156,18 +219,18 @@ void saveModeConfig(void) {
         return;
     }
     EEPROM.write(EEPROM_MODE_ADDR, operationMode);
-    EEPROM.commit();
+    commitEeprom();
     if (eepromMutex) {
         xSemaphoreGive(eepromMutex);
     }
 }
 
 void loadManualModeConfig(void) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < RELAY_COUNT; i++) {
         uint8_t state = EEPROM.read(EEPROM_MANUAL_RELAYS_ADDR + i);
         relayStates[i] = (state == 1);
         digitalWrite(relayPins[i], relayStates[i] ? HIGH : LOW);
-        control_states[i] = relayStates[i] ? 1 : 0;
+        if (i < 4) control_states[i] = relayStates[i] ? 1 : 0;
     }
 }
 
@@ -200,7 +263,7 @@ void saveAutomationConfig(void) {
         addr += sizeof(float);
         EEPROM.write(addr++, autoRules[i].lastState ? 1 : 0);
     }
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void loadAutomationConfig(void) {
@@ -227,7 +290,7 @@ void loadAutomationConfig(void) {
         EEPROM.get(addr, autoRules[i].humMax);
         addr += sizeof(float);
         autoRules[i].lastState = EEPROM.read(addr++) == 1;
-        if (autoRules[i].nodeId > MAX_NODES || autoRules[i].relayId > 4 || autoRules[i].relayId == 0) {
+        if (autoRules[i].nodeId > MAX_NODES || autoRules[i].relayId > RELAY_COUNT || autoRules[i].relayId == 0) {
             autoRules[i].enabled = false;
         }
     }
@@ -250,7 +313,7 @@ void saveQueueConfig(void) {
             addr += sizeof(uint32_t);
         }
     }
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void loadQueueConfig(void) {
@@ -263,7 +326,7 @@ void loadQueueConfig(void) {
         return;
     }
     for (int i = 0; i < MAX_QUEUE_STEPS; i++) {
-        queueConfig.steps[i].relayMask = EEPROM.read(addr++) & 0x0F;
+        queueConfig.steps[i].relayMask = EEPROM.read(addr++) & RELAY_MASK_ALL;
         EEPROM.get(addr, queueConfig.steps[i].duration);
         addr += sizeof(uint32_t);
     }
@@ -271,7 +334,7 @@ void loadQueueConfig(void) {
 
 void saveHybridConfig(void) {
     EEPROM.write(EEPROM_HYBRID_CONFIG_ADDR, hybridLogic);
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void loadHybridConfig(void) {
@@ -285,7 +348,7 @@ void saveSensorSleep(void) {
     uint16_t seconds = shunya_clamp_sleep_sec(sensorSleepSec);
     EEPROM.write(EEPROM_SENSOR_SLEEP_ADDR, (uint8_t)(seconds & 0xFF));
     EEPROM.write(EEPROM_SENSOR_SLEEP_ADDR + 1, (uint8_t)(seconds >> 8));
-    EEPROM.commit();
+    commitEeprom();
 }
 
 void loadSensorSleep(void) {
@@ -320,5 +383,5 @@ void eepromFlushAll(void) {
     for (int i = 0; i < EEPROM_SIZE; i++) {
         EEPROM.write(i, 0xFF);
     }
-    EEPROM.commit();
+    commitEeprom();
 }

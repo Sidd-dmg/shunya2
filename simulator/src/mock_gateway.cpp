@@ -1,4 +1,5 @@
 #include "hmi/backend.hpp"
+#include "display_protocol.h"
 
 #include <algorithm>
 #include <cmath>
@@ -38,7 +39,7 @@ CommandResult MockGateway::submit(const Command &command) {
     case Command::Type::set_relay:
         if (state_.mode != OperationMode::manual)
             return {false, "Relay control requires Manual mode"};
-        if (command.index >= 4) return {false, "Relay index is out of range"};
+        if (command.index >= DISPLAY_RELAY_COUNT) return {false, "Relay index is out of range"};
         if (command.enabled) state_.relay_mask |= std::uint8_t(1U << command.index);
         else state_.relay_mask &= std::uint8_t(~(1U << command.index));
         break;

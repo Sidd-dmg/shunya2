@@ -70,6 +70,8 @@
     {"objID":"95db0dca-7425-4a1a-a42b-020000000023","components":[],"connectionLines":[],"localVariables":[],"name":"test_hub","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000024","components":[],"connectionLines":[],"localVariables":[],"name":"test_display","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000025","components":[],"connectionLines":[],"localVariables":[],"name":"reset_wifi","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-02000000002a","components":[],"connectionLines":[],"localVariables":[],"name":"wifi_qr","implementationType":"native"},
+    {"objID":"95db0dca-7425-4a1a-a42b-02000000002b","components":[],"connectionLines":[],"localVariables":[],"name":"close_wifi_qr","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000026","components":[],"connectionLines":[],"localVariables":[],"name":"brightness_changed","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000027","components":[],"connectionLines":[],"localVariables":[],"name":"timeout_changed","implementationType":"native"},
     {"objID":"95db0dca-7425-4a1a-a42b-020000000028","components":[],"connectionLines":[],"localVariables":[],"name":"node_history","implementationType":"native"},
@@ -139,8 +141,7 @@
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000119","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_1","text":"--.- %","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000120","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000126","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000127","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_1","text":"Last update  --","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000152","type":"LVGLLabelWidget","left":218,"top":14,"width":128,"height":20,"text":"TAP FOR TREND","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000152","definition":{"MAIN":{"DEFAULT":{"text_color":"#38BDF8"}}}}}
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000127","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_1","text":"Last update  --","textType":"literal","children":[]}
                     ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000014","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}},
                     {"objID":"95db0dca-7425-4a1a-a42b-030000000015","type":"LVGLPanelWidget","left":397,"top":50,"width":365,"height":274,"identifier":"node_panel_2","hiddenFlag":true,"eventHandlers":[{"objID":"95db0dca-7425-4a1a-a42b-050000000115","eventName":"CLICKED","handlerType":"action","action":"node_history"}],"children":[
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000128","type":"LVGLLabelWidget","left":16,"top":14,"width":200,"height":24,"identifier":"node_name_2","text":"NODE 02","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000128","definition":{"MAIN":{"DEFAULT":{"text_color":"#F8FAFC","text_font":"MONTSERRAT_18"}}}}},
@@ -151,8 +152,7 @@
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000135","type":"LVGLLabelWidget","left":222,"top":102,"width":94,"height":36,"identifier":"humidity_value_2","text":"--.- %","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000136","type":"LVGLLabelWidget","left":53,"top":196,"width":90,"height":20,"text":"TEMPERATURE","textType":"literal","children":[]},
                       {"objID":"95db0dca-7425-4a1a-a42b-030000000137","type":"LVGLLabelWidget","left":233,"top":196,"width":80,"height":20,"text":"HUMIDITY","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000138","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_2","text":"Last update  --","textType":"literal","children":[]},
-                      {"objID":"95db0dca-7425-4a1a-a42b-030000000153","type":"LVGLLabelWidget","left":218,"top":14,"width":128,"height":20,"text":"TAP FOR TREND","textType":"literal","children":[],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000153","definition":{"MAIN":{"DEFAULT":{"text_color":"#38BDF8"}}}}}
+                      {"objID":"95db0dca-7425-4a1a-a42b-030000000138","type":"LVGLLabelWidget","left":16,"top":234,"width":330,"height":20,"identifier":"node_last_seen_2","text":"Last update  --","textType":"literal","children":[]}
                     ],"localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000015","definition":{"MAIN":{"DEFAULT":{"bg_color":"#111E2F","border_color":"#24344A","border_width":1,"radius":14,"pad_all":0,"text_color":"#8DA0B8"}}}}}
                   ],
                   "localStyles":{"objID":"95db0dca-7425-4a1a-a42b-040000000011","definition":{"MAIN":{"DEFAULT":{"bg_color":"#07111F","text_color":"#F8FAFC","pad_all":0}}}}

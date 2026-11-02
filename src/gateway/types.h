@@ -82,6 +82,7 @@ typedef struct {
     float humidity;
     uint8_t lqi;
     uint8_t batteryPercent;
+    bool hasReading;
 } SensorQueueItem;
 
 typedef struct {

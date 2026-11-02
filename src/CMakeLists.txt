@@ -11,7 +11,7 @@ elseif(SHUNYA_ZB_ROLE STREQUAL "sensor")
     idf_component_register(
         SRCS
             "sensor/main.c"
-            "sensor/dht.c"
+            "sensor/sht40.c"
             "sensor/zb_sensor.c"
         INCLUDE_DIRS
             "sensor"
@@ -19,6 +19,7 @@ elseif(SHUNYA_ZB_ROLE STREQUAL "sensor")
         REQUIRES
             nvs_flash
             driver
+            esp_rom
             esp_timer
             esp_event
             esp_adc

@@ -16,6 +16,14 @@ extern "C" {
 #define DISPLAY_PROTO_HEADER_SIZE 10u
 #define DISPLAY_PROTO_FRAME_MAX (DISPLAY_PROTO_HEADER_SIZE + DISPLAY_PROTO_MAX_PAYLOAD + 2u)
 #define DISPLAY_PROTO_MAX_NODES 16u
+/* One bit per relay in display_snapshot_t::relay_mask and queue steps. */
+#define DISPLAY_RELAY_COUNT 7u
+/* Snapshots are intentionally large (node, queue and automation state). Keep
+ * link liveness independent from them and give UART tasks time to recover from
+ * a transient busy period without declaring the peer offline. */
+#define DISPLAY_LINK_HEARTBEAT_MS 1000UL
+#define DISPLAY_LINK_STALE_MS 12000UL
+#define DISPLAY_LINK_SNAPSHOT_REFRESH_MS 5000UL
 
 typedef enum {
     DISPLAY_MSG_HELLO = 0x01,
@@ -26,6 +34,9 @@ typedef enum {
     DISPLAY_MSG_ECHO = 0x06,
     DISPLAY_MSG_WIFI_CREDENTIALS = 0x07,
     DISPLAY_MSG_HMI_OTA_STATUS = 0x08,
+    DISPLAY_MSG_WIFI_PROV = 0x09,
+    /* Ask the peer to repeat its last frame. Sent once when a CRC fails. */
+    DISPLAY_MSG_LINK_RETRY = 0x0A,
 
     DISPLAY_CMD_RELAY = 0x20,
     DISPLAY_CMD_MODE = 0x21,
@@ -41,7 +52,8 @@ typedef enum {
     DISPLAY_CMD_WIFI_RESET = 0x2B,
     DISPLAY_CMD_LINK_TEST = 0x2C,
     DISPLAY_CMD_HMI_OTA = 0x2D,
-    DISPLAY_CMD_SENSOR_SLEEP = 0x2E
+    DISPLAY_CMD_SENSOR_SLEEP = 0x2E,
+    DISPLAY_CMD_WIFI_PROV = 0x2F
 } display_message_type_t;
 
 typedef enum {
@@ -154,6 +166,13 @@ typedef struct __attribute__((packed)) {
     uint8_t result; /* 0=in progress, 1=success, 2=failure */
     char message[62];
 } display_hmi_ota_status_t;
+
+/* JSON scanned by the ESP BLE Provisioning app. The proof of possession
+ * stays inside payload and is not shown as plain text on the HMI. */
+typedef struct __attribute__((packed)) {
+    char name[32];
+    char payload[160];
+} display_wifi_prov_t;
 
 typedef struct __attribute__((packed)) {
     uint8_t relay_index;

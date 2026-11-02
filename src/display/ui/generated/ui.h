@@ -2,6 +2,7 @@
 #define SHUNYA_GENERATED_UI_H
 
 #include <lvgl.h>
+#include "display_protocol.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,8 +54,8 @@ extern lv_obj_t *ui_history_hint;
 extern lv_obj_t *ui_history_chart;
 extern lv_obj_t *ui_history_close_button;
 
-extern lv_obj_t *ui_relay_buttons[4];
-extern lv_obj_t *ui_relay_labels[4];
+extern lv_obj_t *ui_relay_buttons[DISPLAY_RELAY_COUNT];
+extern lv_obj_t *ui_relay_labels[DISPLAY_RELAY_COUNT];
 extern lv_obj_t *ui_all_off_button;
 
 extern lv_obj_t *ui_pair_status;
@@ -86,6 +87,12 @@ extern lv_obj_t *ui_clear_logs_button;
 extern lv_obj_t *ui_test_hub_button;
 extern lv_obj_t *ui_test_display_button;
 extern lv_obj_t *ui_reset_wifi_button;
+extern lv_obj_t *ui_wifi_qr_button;
+extern lv_obj_t *ui_wifi_qr_overlay;
+extern lv_obj_t *ui_wifi_qr_card;
+extern lv_obj_t *ui_wifi_qr;
+extern lv_obj_t *ui_wifi_qr_name;
+extern lv_obj_t *ui_wifi_qr_close_button;
 extern lv_obj_t *ui_brightness_slider;
 extern lv_obj_t *ui_timeout_dropdown;
 
@@ -111,6 +118,8 @@ void action_clear_logs(lv_event_t *event);
 void action_test_hub(lv_event_t *event);
 void action_test_display(lv_event_t *event);
 void action_reset_wifi(lv_event_t *event);
+void action_wifi_qr(lv_event_t *event);
+void action_close_wifi_qr(lv_event_t *event);
 void action_brightness_changed(lv_event_t *event);
 void action_timeout_changed(lv_event_t *event);
 

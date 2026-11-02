@@ -23,7 +23,7 @@
 #include "thread_codec.h"
 #include "thread_dataset.h"
 #ifndef SENSOR_DEMO_SERIAL
-#include "dht.h"
+#include "sht40.h"
 #endif
 
 static const char *TAG = "thread_sensor";
@@ -210,15 +210,15 @@ static void report_task(void *arg)
         float t = 0, h = 0;
         esp_err_t error = ESP_FAIL;
         for (int attempt = 0; attempt < 3 && error != ESP_OK; ++attempt) {
-            error = dht_read(DHT_GPIO, DHT_MODEL, &t, &h);
-            if (error != ESP_OK) vTaskDelay(pdMS_TO_TICKS(500));
+            error = sht40_read(&t, &h);
+            if (error != ESP_OK) vTaskDelay(pdMS_TO_TICKS(50));
         }
         if (error == ESP_OK) {
             temp_x100 = (int16_t)lroundf(t * 100.0f);
             hum_x100 = (uint16_t)lroundf(h * 100.0f);
             have_value = true;
         } else {
-            ESP_LOGW(TAG, "DHT read failed: %s", esp_err_to_name(error));
+            ESP_LOGW(TAG, "SHT40 read failed: %s", esp_err_to_name(error));
         }
 #endif
         if (have_value && !send_with_ack(THREAD_MSG_REPORT, temp_x100, hum_x100)) {

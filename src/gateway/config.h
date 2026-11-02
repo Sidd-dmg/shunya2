@@ -5,7 +5,7 @@
 
 #include "shunya_zb.h"
 
-#define CURRENT_VERSION "4.0.1"
+#define CURRENT_VERSION "4.2.1"
 
 #define MQTT_SERVER   "82.112.230.108"
 #define MQTT_PORT     1883
@@ -22,10 +22,15 @@
 #define OTA_CHECK_INTERVAL_MS 3600000UL
 
 #define BOOT_BUTTON_PIN  0
-#define RELAY1_PIN       8
-#define RELAY2_PIN       18
-#define RELAY3_PIN       16
-#define RELAY4_PIN       15
+#define RELAY_COUNT      7
+#define RELAY_MASK_ALL   ((uint8_t)((1u << RELAY_COUNT) - 1u))
+#define RELAY1_PIN       15
+#define RELAY2_PIN       16
+#define RELAY3_PIN       9
+#define RELAY4_PIN       14
+#define RELAY5_PIN       21
+#define RELAY6_PIN       47
+#define RELAY7_PIN       48
 
 #define DISPLAY_UART_RX     44
 #define DISPLAY_UART_TX     43
@@ -33,21 +38,23 @@
 #define DisplaySerial       Serial2
 
 /* S3 Serial1 <-> C6 hub UART1. Cross TX/RX on the PCB. */
-#define HUB_UART_RX      4
-#define HUB_UART_TX      5
+#define HUB_UART_RX      17
+#define HUB_UART_TX      18
 #define HUB_UART_BAUD    115200
 
 #define MAX_NODES        16
 #define MAX_AUTO_RULES   16
 #define MAX_QUEUE_STEPS  20
 
-#define EEPROM_SIZE               4096
+/* The used map ends at address 832. A 4 KB image cannot be replaced inside
+ * the 20 KB NVS partition, so commits fail with ESP_ERR_NVS_NOT_ENOUGH_SPACE. */
+#define EEPROM_SIZE               1024
 /* Legacy v1 node storage is retained solely for one-time migration. */
 #define EEPROM_NODE_COUNT_ADDR    0
 #define EEPROM_NODES_START_ADDR   1
 #define EEPROM_NODE_RECORD_SIZE   11
 #define EEPROM_MODE_ADDR          100
-#define EEPROM_MANUAL_RELAYS_ADDR 101
+#define EEPROM_MANUAL_RELAYS_ADDR 101 /* RELAY_COUNT bytes; automation rules start at 110 */
 #define EEPROM_AUTO_RULES_ADDR    110
 #define EEPROM_QUEUE_STATE_ADDR   290
 #define EEPROM_QUEUE_CONFIG_ADDR  300
@@ -57,7 +64,9 @@
 #define EEPROM_NODES_SCHEMA_ADDR      500
 #define EEPROM_NODES_V2_START_ADDR    512
 #define EEPROM_NODES_SCHEMA_MAGIC     0x534E4F44UL
-#define EEPROM_NODES_SCHEMA_VERSION   2
+#define EEPROM_NODES_SCHEMA_VERSION   3
+/* v3 adds temperature, humidity, and battery after the 11-byte identity. */
+#define EEPROM_NODE_RECORD_V3_SIZE    20
 
 #define PAIRING_MODE_DURATION_MS 120000UL
 #define BUTTON_HOLD_TIME_MS      1000UL

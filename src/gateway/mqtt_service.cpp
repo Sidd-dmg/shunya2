@@ -5,6 +5,7 @@
 #include "config.h"
 #include "event_log.h"
 #include "diagnostics.h"
+#include "relay_control.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -116,6 +117,12 @@ void publishSensorData(uint8_t nodeId, float temperature, float humidity, uint8_
 }
 
 void publishStatus(void) {
+    /* Relay commands are applied by the higher-priority relay task. Wait for
+     * commands queued before this snapshot so mode/queue state and GPIO state
+     * are reported atomically instead of one transition apart. */
+    if (!relayWaitForIdle(150)) {
+        diagnosticsLog("mqtt/status", "relay settle timeout");
+    }
     JsonDocument doc;
     doc["mode"] = operationMode;
     doc["mode_name"] = (operationMode == MODE_MANUAL) ? "manual" :
@@ -135,7 +142,7 @@ void publishStatus(void) {
     doc["paired_nodes"] = nodeCount;
     doc["sensor_sleep_sec"] = sensorSleepSec;
     JsonArray relays = doc["relays"].to<JsonArray>();
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < RELAY_COUNT; i++) {
         relays.add(relayStates[i]);
     }
     JsonArray nodesArray = doc["nodes"].to<JsonArray>();

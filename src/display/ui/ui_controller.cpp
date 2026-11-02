@@ -146,6 +146,15 @@ static void formatX100(char *output, size_t size, int32_t value) {
              (unsigned long)((magnitude % 100U) / 10U));
 }
 
+static const char *batterySymbol(uint8_t percent) {
+    if (percent == BATTERY_PCT_UNKNOWN) return LV_SYMBOL_BATTERY_EMPTY;
+    if (percent >= 80) return LV_SYMBOL_BATTERY_FULL;
+    if (percent >= 55) return LV_SYMBOL_BATTERY_3;
+    if (percent >= 30) return LV_SYMBOL_BATTERY_2;
+    if (percent >= 10) return LV_SYMBOL_BATTERY_1;
+    return LV_SYMBOL_BATTERY_EMPTY;
+}
+
 static void toast(const char *text, lv_color_t color) {
     lv_label_set_text(ui_toast, text);
     lv_obj_set_style_bg_color(ui_toast, color, 0);
@@ -307,12 +316,14 @@ static void refreshDashboard(const display_snapshot_t &snapshot, bool force) {
             node.battery_percent != old->battery_percent) {
             if (node.battery_percent == BATTERY_PCT_UNKNOWN) {
                 lv_label_set_text_fmt(ui_node_meta[slot],
-                                      "LQI %u  |  batt --  |  updated %lus ago",
-                                      node.lqi, (unsigned long)(node.age_ms / 1000UL));
+                                      "LQI %u  |  %s --  |  updated %lus ago",
+                                      node.lqi, batterySymbol(node.battery_percent),
+                                      (unsigned long)(node.age_ms / 1000UL));
             } else {
                 lv_label_set_text_fmt(ui_node_meta[slot],
-                                      "LQI %u  |  batt %u%%  |  updated %lus ago",
-                                      node.lqi, node.battery_percent,
+                                      "LQI %u  |  %s %u%%  |  updated %lus ago",
+                                      node.lqi, batterySymbol(node.battery_percent),
+                                      node.battery_percent,
                                       (unsigned long)(node.age_ms / 1000UL));
             }
         }
@@ -322,10 +333,21 @@ static void refreshDashboard(const display_snapshot_t &snapshot, bool force) {
 static void refreshRelays(const display_snapshot_t &snapshot, bool force) {
     if (!force && s_has_rendered &&
         snapshot.relay_mask == s_rendered.relay_mask) return;
-    for (uint8_t i = 0; i < 4; ++i) {
+    for (uint8_t i = 0; i < DISPLAY_RELAY_COUNT; ++i) {
         const bool on = (snapshot.relay_mask & (1u << i)) != 0;
         lv_label_set_text_fmt(ui_relay_labels[i], "RELAY %u\n%s", i + 1, on ? "ON" : "OFF");
         lv_obj_set_style_bg_color(ui_relay_buttons[i], on ? COLOR_GREEN : COLOR_PANEL_2, 0);
+    }
+}
+
+static uint16_t s_sleep_drag_value = 0;
+static bool s_sleep_drag_dirty = false;
+
+static void commitSleepSlider(uint16_t seconds) {
+    s_sleep_drag_dirty = false;
+    uint8_t payload[2] = {(uint8_t)(seconds & 0xFF), (uint8_t)(seconds >> 8)};
+    if (!uiBackendSendCommand(DISPLAY_CMD_SENSOR_SLEEP, payload, 2)) {
+        toast("Command queue busy - please retry", COLOR_RED);
     }
 }
 
@@ -335,8 +357,10 @@ static void refreshSensors(const display_snapshot_t &snapshot, bool force) {
         const uint16_t seconds = snapshot.sensor_sleep_sec
                                      ? snapshot.sensor_sleep_sec
                                      : SENSOR_SLEEP_DEFAULT_S;
-        lv_label_set_text_fmt(ui_sleep_label, "SLEEP %u s", seconds);
-        if (!lv_obj_has_state(ui_sleep_slider, LV_STATE_PRESSED)) {
+        const bool user_adjusting =
+            lv_obj_has_state(ui_sleep_slider, LV_STATE_PRESSED) || s_sleep_drag_dirty;
+        if (!user_adjusting) {
+            lv_label_set_text_fmt(ui_sleep_label, "SLEEP %u s", seconds);
             const int32_t slider_value =
                 seconds > 600 ? 600 : (seconds < 5 ? 5 : (int32_t)seconds);
             lv_slider_set_value(ui_sleep_slider, slider_value, LV_ANIM_OFF);
@@ -389,14 +413,16 @@ static void refreshSensors(const display_snapshot_t &snapshot, bool force) {
             formatX100(humidity, sizeof(humidity), node->humidity_x100);
             if (node->battery_percent == BATTERY_PCT_UNKNOWN) {
                 snprintf(row_text, sizeof(row_text),
-                         "NODE %u   %s C   %s %%RH   batt --   LQI %u   %lus%s",
-                         node->node_id, temperature, humidity, node->lqi,
+                         "NODE %u   %s C   %s %%RH   %s --   LQI %u   %lus%s",
+                         node->node_id, temperature, humidity,
+                         batterySymbol(node->battery_percent), node->lqi,
                          (unsigned long)(node->age_ms / 1000UL),
                          node->active ? "" : "   STALE");
             } else {
                 snprintf(row_text, sizeof(row_text),
-                         "NODE %u   %s C   %s %%RH   batt %u%%   LQI %u   %lus%s",
+                         "NODE %u   %s C   %s %%RH   %s %u%%   LQI %u   %lus%s",
                          node->node_id, temperature, humidity,
+                         batterySymbol(node->battery_percent),
                          node->battery_percent, node->lqi,
                          (unsigned long)(node->age_ms / 1000UL),
                          node->active ? "" : "   STALE");
@@ -420,7 +446,7 @@ static void relayMaskText(char *output, size_t size, uint8_t mask) {
         return;
     }
     size_t used = 0;
-    for (uint8_t i = 0; i < 4; ++i) {
+    for (uint8_t i = 0; i < DISPLAY_RELAY_COUNT; ++i) {
         if (mask & (1u << i)) {
             used += (size_t)snprintf(output + used, size - used,
                                      "%sR%u", used ? " + " : "", i + 1);
@@ -670,8 +696,25 @@ static void refreshController(bool force) {
     /* Critical tier (60 Hz): command feedback and short-lived overlays. */
     display_ack_t ack;
     if (uiBackendTakeAck(&ack)) {
-        toast(ack.status == DISPLAY_ACK_OK ? "Command accepted" : "Command rejected",
-              ack.status == DISPLAY_ACK_OK ? COLOR_GREEN : COLOR_RED);
+        if (ack.command != DISPLAY_CMD_WIFI_PROV || ack.status != DISPLAY_ACK_OK) {
+            toast(ack.status == DISPLAY_ACK_OK ? "Command accepted" : "Command rejected",
+                  ack.status == DISPLAY_ACK_OK ? COLOR_GREEN : COLOR_RED);
+        }
+    }
+    display_wifi_prov_t wifi_prov;
+    if (uiBackendTakeWifiProv(&wifi_prov)) {
+        wifi_prov.name[sizeof(wifi_prov.name) - 1] = '\0';
+        wifi_prov.payload[sizeof(wifi_prov.payload) - 1] = '\0';
+        const uint32_t payload_len = (uint32_t)strlen(wifi_prov.payload);
+        if (!payload_len ||
+            lv_qrcode_update(ui_wifi_qr, wifi_prov.payload, payload_len) != LV_RES_OK) {
+            toast("Provisioning QR could not be drawn", COLOR_RED);
+        } else {
+            lv_label_set_text(ui_wifi_qr_name,
+                              wifi_prov.name[0] ? wifi_prov.name : "Shunya");
+            lv_obj_clear_flag(ui_wifi_qr_overlay, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(ui_wifi_qr_overlay);
+        }
     }
     display_hmi_ota_status_t ota_status;
     if (uiBackendTakeOtaStatus(&ota_status)) {
@@ -731,6 +774,10 @@ static void refreshController(bool force) {
         if (opacity != s_last_dimmer_opacity) {
             lv_obj_set_style_bg_opa(ui_dimmer, opacity, 0);
             s_last_dimmer_opacity = opacity;
+        }
+        if (s_sleep_drag_dirty &&
+            !lv_obj_has_state(ui_sleep_slider, LV_STATE_PRESSED)) {
+            commitSleepSlider(s_sleep_drag_value);
         }
     }
 }
@@ -841,13 +888,18 @@ extern "C" void action_sensor_next(lv_event_t *) {
 }
 
 extern "C" void action_sleep_changed(lv_event_t *event) {
+    const lv_event_code_t code = lv_event_get_code(event);
     const uint16_t seconds = (uint16_t)lv_slider_get_value(ui_sleep_slider);
     lv_label_set_text_fmt(ui_sleep_label, "SLEEP %u s", seconds);
-    if (lv_event_get_code(event) != LV_EVENT_RELEASED) return;
-    uint8_t payload[2] = {(uint8_t)(seconds & 0xFF), (uint8_t)(seconds >> 8)};
-    if (!uiBackendSendCommand(DISPLAY_CMD_SENSOR_SLEEP, payload, 2)) {
-        toast("Command queue busy - please retry", COLOR_RED);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        if (lv_indev_get_act()) {
+            s_sleep_drag_value = seconds;
+            s_sleep_drag_dirty = true;
+        }
+        return;
     }
+    if (code != LV_EVENT_RELEASED && code != LV_EVENT_PRESS_LOST) return;
+    commitSleepSlider(seconds);
 }
 
 extern "C" void action_forget_all_nodes(lv_event_t *) {
@@ -872,5 +924,19 @@ extern "C" void action_clear_logs(lv_event_t *) { showConfirmation(DISPLAY_CMD_E
 extern "C" void action_test_hub(lv_event_t *) { sendSimple(DISPLAY_CMD_LINK_TEST, 1); }
 extern "C" void action_test_display(lv_event_t *) { sendSimple(DISPLAY_CMD_LINK_TEST, 2); }
 extern "C" void action_reset_wifi(lv_event_t *) { showConfirmation(DISPLAY_CMD_WIFI_RESET, 1); }
+
+extern "C" void action_wifi_qr(lv_event_t *) {
+    if (!uiBackendLinkConnected()) {
+        toast("Gateway link required", COLOR_ORANGE);
+        return;
+    }
+    if (!uiBackendSendCommand(DISPLAY_CMD_WIFI_PROV, nullptr, 0)) {
+        toast("Command queue busy - please retry", COLOR_RED);
+    }
+}
+
+extern "C" void action_close_wifi_qr(lv_event_t *) {
+    lv_obj_add_flag(ui_wifi_qr_overlay, LV_OBJ_FLAG_HIDDEN);
+}
 extern "C" void action_brightness_changed(lv_event_t *) {}
 extern "C" void action_timeout_changed(lv_event_t *) {}

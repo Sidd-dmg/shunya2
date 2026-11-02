@@ -25,7 +25,9 @@ typedef struct {
 void displayBegin();
 void displayRxTask(void *arg);
 void displayProcessPendingCommands();
+bool displayHasPendingCommands();
 void displaySendSnapshot();
+void displaySendHeartbeat();
 void displayGetStats(DisplayLinkStats *stats);
 bool displayEchoTest(uint32_t timeoutMs, uint32_t *rttMs);
 

@@ -11,8 +11,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -289,6 +291,97 @@ int main(int argc, char **argv) {
                         "0/1/4/5/16 sensor pagination and forget, radials, mode-only "
                         "Programs, read-only tables; tab render %lld us\n",
                         static_cast<long long>(tab_us));
+            return 0;
+        }
+
+        if (argc > 1 && std::string(argv[1]) == "--monkey-test") {
+            const int iterations = argc > 2 ? std::max(1, std::atoi(argv[2])) : 1000;
+            std::mt19937 random(0x5348554eU);
+            auto choose = [&](int limit) {
+                return static_cast<int>(random() % static_cast<unsigned>(limit));
+            };
+            gateway.setSensorsForTest(make_sensors(16));
+            hmi::reset_ui_backend_command_counts();
+
+            for (int i = 0; i < iterations; ++i) {
+                switch (choose(12)) {
+                case 0:
+                    lv_tabview_set_act(ui_main_tabs, choose(5), LV_ANIM_OFF);
+                    break;
+                case 1:
+                    lv_event_send(ui_status_chips[choose(UI_STATUS_COUNT)],
+                                  LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 2:
+                    lv_dropdown_set_selected(ui_mode_dropdown, choose(4));
+                    lv_event_send(ui_apply_mode_button, LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 3:
+                    if (gateway.snapshot().mode != hmi::OperationMode::manual) {
+                        lv_dropdown_set_selected(ui_mode_dropdown, 0);
+                        lv_event_send(ui_apply_mode_button, LV_EVENT_CLICKED, nullptr);
+                    }
+                    lv_event_send(ui_relay_buttons[choose(DISPLAY_RELAY_COUNT)], LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 4:
+                    lv_event_send(ui_all_off_button, LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 5:
+                    lv_event_send(ui_pair_toggle_button, LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 6:
+                    lv_slider_set_value(ui_sleep_slider, 5 + choose(596), LV_ANIM_OFF);
+                    lv_event_send(ui_sleep_slider, LV_EVENT_RELEASED, nullptr);
+                    break;
+                case 7:
+                    lv_event_send(choose(2) ? ui_sensor_next_button
+                                           : ui_sensor_previous_button,
+                                  LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 8:
+                    lv_tabview_set_act(ui_main_tabs, 0, LV_ANIM_OFF);
+                    uiControllerRefreshNow();
+                    lv_event_send(ui_node_panels[choose(2)], LV_EVENT_CLICKED, nullptr);
+                    if (!lv_obj_has_flag(ui_history_overlay, LV_OBJ_FLAG_HIDDEN))
+                        lv_event_send(ui_history_close_button, LV_EVENT_CLICKED, nullptr);
+                    break;
+                case 9:
+                    lv_tabview_set_act(ui_program_tabs, choose(2), LV_ANIM_OFF);
+                    break;
+                case 10:
+                    lv_slider_set_value(ui_brightness_slider, 10 + choose(91), LV_ANIM_OFF);
+                    lv_event_send(ui_brightness_slider, LV_EVENT_VALUE_CHANGED, nullptr);
+                    break;
+                case 11:
+                    lv_dropdown_set_selected(ui_timeout_dropdown, choose(4));
+                    lv_event_send(ui_timeout_dropdown, LV_EVENT_VALUE_CHANGED, nullptr);
+                    break;
+                }
+                const std::uint32_t elapsed = 1U + static_cast<std::uint32_t>(choose(40));
+                lv_tick_inc(elapsed);
+                gateway.tick(elapsed);
+                uiControllerRefreshNow();
+                lv_timer_handler();
+                const auto tab = lv_tabview_get_tab_act(ui_main_tabs);
+                if (tab > 4)
+                    throw std::runtime_error("monkey selected an invalid main tab");
+                if (std::string(lv_label_get_text(ui_sensor_page_label)).find("PAGE ") != 0)
+                    throw std::runtime_error("monkey corrupted sensor pagination");
+            }
+
+            lv_dropdown_set_selected(ui_mode_dropdown, 0);
+            lv_event_send(ui_apply_mode_button, LV_EVENT_CLICKED, nullptr);
+            lv_event_send(ui_all_off_button, LV_EVENT_CLICKED, nullptr);
+            uiControllerRefreshNow();
+            if (gateway.snapshot().relay_mask != 0)
+                throw std::runtime_error("monkey cleanup left a relay enabled");
+            std::printf("HMI monkey test passed: %d deterministic randomized interactions, "
+                        "%u backend commands\n", iterations,
+                        static_cast<unsigned>(hmi::ui_backend_command_count(
+                            DISPLAY_CMD_RELAY) +
+                            hmi::ui_backend_command_count(DISPLAY_CMD_MODE) +
+                            hmi::ui_backend_command_count(DISPLAY_CMD_PAIRING) +
+                            hmi::ui_backend_command_count(DISPLAY_CMD_SENSOR_SLEEP)));
             return 0;
         }
 
